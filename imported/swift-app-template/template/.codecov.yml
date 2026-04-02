@@ -1,0 +1,32 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+
+flags:
+  ubuntu:
+    paths:
+      - Packages/{{TEMPLATE_PACKAGE_NAME}}/Sources/
+  windows:
+    paths:
+      - Packages/{{TEMPLATE_PACKAGE_NAME}}/Sources/
+  macos:
+    paths:
+      - Packages/{{TEMPLATE_PACKAGE_NAME}}/Sources/
+
+ignore:
+  - "Packages/{{TEMPLATE_PACKAGE_NAME}}/Tests/**"
+  - "**/Package.swift"
+  - "Project.swift"
+  - "Tuist/**"
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false

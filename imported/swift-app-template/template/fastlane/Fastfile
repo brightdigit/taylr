@@ -1,0 +1,401 @@
+# Fastfile for {{TEMPLATE_APP_NAME}}
+# Automated build, test, and deployment lanes
+
+# Load configuration
+require_relative 'Config'
+
+# Platform is configured in Config.rb via the PLATFORM constant (set by setup.sh).
+# Default: "mac". Change to "ios", "tvos", or "watchos" for other platforms,
+# and update TEST_DESTINATION, PRODUCE_PLATFORM, and BUILD_ARTIFACT_EXT accordingly.
+default_platform(FastlaneConfig::PLATFORM.to_sym)
+
+platform FastlaneConfig::PLATFORM.to_sym do
+  desc "Register app in Apple Developer Portal and App Store Connect"
+  lane :setup_app do
+    # Get configuration from Config.rb
+    app_name = FastlaneConfig::APP_NAME
+    app_identifier = FastlaneConfig::APP_IDENTIFIER
+    username = FastlaneConfig::APPLE_ID
+    team_id = FastlaneConfig::TEAM_ID
+    itc_team_id = FastlaneConfig::ITC_TEAM_ID
+    app_groups = FastlaneConfig::APP_GROUPS
+
+    UI.message("Using configuration from Config.rb:")
+    UI.message("  App Name: #{app_name}")
+    UI.message("  Bundle ID: #{app_identifier}")
+    UI.message("  Apple ID: #{username}")
+    UI.message("  Team ID: #{team_id}")
+    UI.message("  ITC Team ID: #{itc_team_id}")
+    UI.message("  App Groups: #{app_groups.join(', ')}")
+
+    produce(
+      username: username,
+      app_identifier: app_identifier,
+      app_name: app_name,
+      platform: FastlaneConfig::PRODUCE_PLATFORM,
+      team_id: team_id,
+      itc_team_id: itc_team_id,
+      skip_itc: false, # Create in App Store Connect too
+      enable_services: {
+        app_group: "on" # Enable App Groups capability
+      }
+    )
+
+    # Register app groups in Developer Portal
+    app_groups.each do |group_id|
+      UI.message("App group configured: #{group_id}")
+      # Note: You may need to manually enable app groups in Xcode capabilities
+    end
+
+    UI.success("✅ App registered in Developer Portal and App Store Connect!")
+    UI.message("Next step: Run 'make certs' to sync certificates")
+  end
+
+  desc "Sync development certificates and provisioning profiles"
+  lane :sync_certificates_development do
+    # Setup CI keychain if running in CI environment
+    setup_ci if ENV['CI']
+
+    identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+
+    setup_api_key
+
+    match(
+      type: "development",
+      readonly: ENV["CI"] == "true",
+      app_identifier: identifier
+    )
+    UI.success("✅ Development certificates synced!")
+  end
+
+  desc "Force regenerate development provisioning profiles with updated capabilities"
+  lane :regenerate_development_profiles do
+    identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+
+    UI.important("⚠️  This will FORCE regenerate the development provisioning profile")
+    UI.important("    This completely recreates profiles with new capabilities like App Groups")
+
+    setup_api_key
+
+    match(
+      type: "development",
+      force: true,  # Force regenerate even if profile exists
+      app_identifier: identifier
+    )
+
+    UI.success("✅ Development provisioning profiles regenerated!")
+  end
+
+  desc "Sync App Store certificates and provisioning profiles"
+  lane :sync_certificates_appstore do
+    # Setup CI keychain if running in CI environment
+    setup_ci if ENV['CI']
+
+    identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+
+    setup_api_key
+
+    match_opts = {
+      type: "appstore",
+      readonly: ENV["CI"] == "true",
+      app_identifier: identifier
+    }
+    # mac_installer_distribution is required for Mac App Store submissions only
+    match_opts[:additional_cert_types] = ["mac_installer_distribution"] if FastlaneConfig::PLATFORM == "mac"
+    match(**match_opts)
+    UI.success("✅ App Store certificates synced!")
+  end
+
+  desc "Force regenerate App Store provisioning profiles with updated capabilities"
+  lane :regenerate_appstore_profiles do
+    identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+
+    UI.important("⚠️  This will FORCE regenerate the App Store provisioning profile")
+    UI.important("    This completely recreates profiles with new capabilities like App Groups")
+
+    setup_api_key
+
+    match(
+      type: "appstore",
+      force: true,  # Force regenerate even if profile exists
+      app_identifier: identifier
+    )
+
+    UI.success("✅ App Store provisioning profiles regenerated!")
+  end
+
+  desc "Force regenerate all provisioning profiles (development and appstore)"
+  lane :regenerate_all_profiles do
+    regenerate_development_profiles
+    regenerate_appstore_profiles
+    UI.success("✅ All provisioning profiles regenerated!")
+  end
+
+  desc "Sync all certificates (development and appstore)"
+  lane :sync_certificates do
+    sync_certificates_development
+    sync_certificates_appstore
+    UI.success("✅ All certificates synced!")
+  end
+
+  desc "Run all unit tests"
+  lane :test do
+    run_tests(
+      scheme: FastlaneConfig::APP_NAME,
+      destination: FastlaneConfig::TEST_DESTINATION,
+      code_coverage: true,
+      output_directory: "./fastlane/test_output",
+      output_types: "html,junit"
+    )
+
+    UI.success("✅ All tests passed!")
+    UI.message("Code coverage report generated in fastlane/test_output")
+  end
+
+  desc "Build debug version"
+  lane :build do
+    clear_derived_data
+
+    xcodebuild(
+      workspace: "#{FastlaneConfig::APP_NAME}.xcworkspace",
+      scheme: FastlaneConfig::APP_NAME,
+      configuration: "Debug",
+      clean: true,
+      build: true,
+      destination: FastlaneConfig::TEST_DESTINATION
+    )
+
+    # Copy app to build directory
+    sh("mkdir -p ../build")
+    build_settings = sh(%(xcodebuild -workspace "#{FastlaneConfig::APP_NAME}.xcworkspace" -scheme "#{FastlaneConfig::APP_NAME}" -configuration "Debug" -showBuildSettings))
+    built_products_dir = build_settings[/BUILT_PRODUCTS_DIR = (.+)$/, 1]
+    full_product_name = build_settings[/FULL_PRODUCT_NAME = (.+)$/, 1]
+    if built_products_dir.nil? || full_product_name.nil?
+      UI.user_error!("Unable to determine build product path from xcodebuild settings")
+    end
+    app_path = File.join(built_products_dir, full_product_name)
+    sh(%(cp -R "#{app_path}" ../build/))
+
+    UI.success("✅ Debug build complete!")
+    UI.message("App built at: ./build/#{FastlaneConfig::APP_NAME}.app")
+  end
+
+  desc "Build release version for App Store"
+  lane :release_build do
+    setup_api_key
+
+    # Setup CI keychain if running in CI environment
+    setup_ci if ENV['CI']
+
+    # Sync App Store certificates (includes installer certificate for macOS)
+    sync_certificates_appstore
+
+    clear_derived_data
+
+    build_app(
+      scheme: FastlaneConfig::APP_NAME,
+      configuration: "Release",
+      clean: true,
+      export_method: "app-store",
+      output_directory: "./build/release",
+      output_name: FastlaneConfig::APP_NAME,
+      xcargs: ENV["FASTLANE_XCARGS"]
+    )
+
+    UI.success("✅ Release build complete!")
+    UI.message("App ready for App Store submission at: ./build/release/#{FastlaneConfig::APP_NAME}.#{FastlaneConfig::BUILD_ARTIFACT_EXT}")
+  end
+
+  desc "Set CURRENT_PROJECT_VERSION from latest TestFlight build + 1"
+  lane :sync_build_number do
+    setup_api_key
+
+    testflight_build = latest_testflight_build_number(
+      app_identifier: FastlaneConfig::APP_IDENTIFIER,
+      initial_build_number: 1
+    )
+    new_build = testflight_build + 1
+
+    UI.message("Latest TestFlight build: #{testflight_build}")
+    UI.message("New build number: #{new_build}")
+
+    sh("cd .. && ./Scripts/update-version.sh --set-build #{new_build}")
+
+    UI.success("✅ Build number set to #{new_build}")
+  end
+
+  desc "Set LAST_RELEASE_BUILD from the live App Store build. Run this after a release is approved by Apple."
+  lane :sync_last_release do
+    setup_api_key
+
+    live_build = app_store_build_number(
+      app_identifier: FastlaneConfig::APP_IDENTIFIER,
+      live: true,
+      initial_build_number: 0
+    )
+
+    UI.message("Live App Store build: #{live_build}")
+
+    sh("cd .. && ./Scripts/update-version.sh --set-last-release #{live_build}")
+
+    UI.success("✅ Last release build set to #{live_build}")
+  end
+
+  desc "Capture screenshots for App Store"
+  lane :screenshot do
+    UI.message("Screenshot capture for #{FastlaneConfig::APP_NAME}")
+    UI.message("Manual capture required:")
+    UI.message("1. Run the app")
+    UI.message("2. Set up a representative state for screenshots")
+    UI.message("3. Capture screenshots for each required device size")
+    UI.message("4. Save to Marketing/Screenshots/")
+
+    # Note: snapshot (Fastlane's screenshot tool) works best for iOS/watchOS.
+    # For macOS or apps with custom UI flows, manual capture may be required.
+  end
+
+  desc "Upload to TestFlight for beta testing"
+  lane :beta do
+    # Ensure we have a release build
+    release_build
+
+    # Validate App Store Connect API credentials
+    unless ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"]
+      UI.user_error!("Missing App Store Connect API credentials! Set these environment variables:\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_KEY_ID\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_ISSUER_ID\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_KEY")
+    end
+
+    setup_api_key
+
+    # Upload to TestFlight
+    testflight_opts = {
+      skip_waiting_for_build_processing: true,
+      app_identifier: FastlaneConfig::APP_IDENTIFIER,
+      changelog: FastlaneConfig::BETA_CHANGELOG,
+      beta_app_description: FastlaneConfig::BETA_APP_DESCRIPTION,
+      beta_app_feedback_email: FastlaneConfig::BETA_FEEDBACK_EMAIL
+    }
+    testflight_opts[:apple_id] = FastlaneConfig::APP_STORE_APP_ID if FastlaneConfig::APP_STORE_APP_ID
+    upload_to_testflight(**testflight_opts)
+
+    # Upload metadata and screenshots to App Store Connect
+    upload_metadata
+
+    UI.success("✅ Build uploaded to TestFlight!")
+    UI.message("Beta testers will be notified once processing completes")
+  end
+
+  desc "Deploy to App Store"
+  lane :release do
+    # Pre-flight checks
+    UI.message("🚀 Preparing App Store release...")
+
+    # Ensure tests pass
+    test
+
+    # Build release version
+    release_build
+
+    setup_api_key
+
+    # Upload to App Store Connect
+    upload_to_app_store(
+      app_identifier: FastlaneConfig::APP_IDENTIFIER,
+      skip_screenshots: false,
+      skip_metadata: false,
+      submit_for_review: false, # Manual submission recommended
+      automatic_release: false,
+      precheck_include_in_app_purchases: false
+    )
+
+    UI.success("✅ App uploaded to App Store Connect!")
+    UI.message("Next steps:")
+    UI.message("1. Review metadata in App Store Connect")
+    UI.message("2. Run 'fastlane submit_for_review' when ready")
+  end
+
+  desc "Upload metadata and screenshots without a binary"
+  lane :upload_metadata do
+    setup_api_key
+
+    upload_to_app_store(
+      app_identifier: FastlaneConfig::APP_IDENTIFIER,
+      skip_binary_upload: true,
+      skip_screenshots: false,
+      overwrite_screenshots: true,
+      skip_metadata: false,
+      precheck_include_in_app_purchases: false,
+      force: true
+    )
+
+    UI.success("✅ Metadata and screenshots uploaded!")
+  end
+
+  desc "Upload App Privacy nutrition labels (no data collected)"
+  lane :upload_privacy_details do
+    upload_app_privacy_details_to_app_store(
+      username: FastlaneConfig::APPLE_ID,
+      app_identifier: FastlaneConfig::APP_IDENTIFIER,
+      json_path: "fastlane/metadata/app_privacy_details.json"
+    )
+
+    UI.success("✅ App Privacy details uploaded!")
+  end
+
+  desc "Submit the current build for App Store review"
+  lane :submit_for_review do
+    setup_api_key
+    upload_privacy_details
+
+    # Resolve the latest TestFlight build number to submit
+    build = latest_testflight_build_number(
+      app_identifier: FastlaneConfig::APP_IDENTIFIER,
+      initial_build_number: 1
+    )
+
+    UI.message("Submitting build number #{build} for App Store review...")
+
+    upload_to_app_store(
+      app_identifier: FastlaneConfig::APP_IDENTIFIER,
+      build_number: build.to_s,
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_metadata: true,
+      submit_for_review: true,
+      automatic_release: false,
+      precheck_include_in_app_purchases: false
+    )
+
+    UI.success("✅ App submitted for App Store review (build #{build})!")
+  end
+
+  # Error handling
+  error do |lane, exception|
+    UI.error("❌ Lane '#{lane}' failed with exception:")
+    UI.error(exception.message)
+  end
+
+  # Private helper to set up App Store Connect API key from environment variables.
+  # Handles base64-decoded key content and is a no-op when credentials are absent.
+  private_lane :setup_api_key do
+    if ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"]
+      unless ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"]
+        UI.user_error!("APP_STORE_CONNECT_API_KEY_ISSUER_ID is required when APP_STORE_CONNECT_API_KEY_KEY_ID is provided")
+      end
+
+      key_content = ENV["APP_STORE_CONNECT_API_KEY_KEY"]
+      if key_content && !(key_content.include?("BEGIN") && key_content.include?("PRIVATE KEY"))
+        require 'base64'
+        key_content = Base64.decode64(key_content)
+      end
+
+      app_store_connect_api_key(
+        key_id: ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"],
+        issuer_id: ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"],
+        key_content: key_content
+      )
+    end
+  end
+end

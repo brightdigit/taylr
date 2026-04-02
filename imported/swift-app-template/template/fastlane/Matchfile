@@ -1,0 +1,28 @@
+# Matchfile for {{TEMPLATE_APP_NAME}}
+# Certificate and provisioning profile management
+
+# Git repository for storing certificates and profiles
+# MUST be a private repository
+git_url("{{TEMPLATE_CERTS_REPO}}")
+
+# Storage mode (git or google_cloud)
+storage_mode("git")
+
+# App Identifier - sync with Appfile
+app_identifier(["{{TEMPLATE_BUNDLE_ID}}"])
+
+# Team ID - sync with Appfile
+team_id("{{TEMPLATE_TEAM_ID}}")
+
+# Username (Apple ID)
+username("{{TEMPLATE_APPLE_ID}}")
+
+# Generate certificates for these types
+type("development") # Can be: appstore, adhoc, development, enterprise, developer_id
+
+# Clone entire certificate repository if needed (slower but safer)
+# If false, only downloads required certificates
+# shallow_clone(false)
+
+# For more information about the Matchfile, see:
+# https://docs.fastlane.tools/actions/match/

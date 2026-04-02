@@ -1,0 +1,435 @@
+# ─── {{TEMPLATE_APP_NAME}} CI/CD Workflow ──────────────────────────────
+# Activate: mv .github/app.workflow.yml .github/workflows/app.yml
+# (done automatically by Scripts/setup.sh)
+name: {{TEMPLATE_APP_NAME}}
+#
+# Comprehensive CI/CD workflow for {{TEMPLATE_APP_NAME}}
+#
+# Required GitHub Secrets (for fastlane deployment):
+#   - CODECOV_TOKEN: Codecov upload token (optional, from https://codecov.io/)
+#   - MATCH_PASSWORD: Password for match certificates repository
+#   - FASTLANE_KEYCHAIN_PASSWORD: Keychain password for code signing
+#   - APP_STORE_CONNECT_API_KEY_ISSUER_ID: App Store Connect API key issuer ID
+#   - APP_STORE_CONNECT_API_KEY_KEY: App Store Connect API key content (base64 encoded)
+#   - APP_STORE_CONNECT_API_KEY_KEY_ID: App Store Connect API key ID
+#   - TUIST_CONFIG_TOKEN: Tuist Cloud token (optional)
+#
+# Required GitHub Variables (set in Fastfile or as secrets):
+#   - APP_IDENTIFIER: Bundle identifier (e.g., {{TEMPLATE_BUNDLE_ID}})
+#   - APPLE_ID: Apple ID for App Store Connect
+#
+on:
+  push:
+    branches-ignore:
+      - '*WIP'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  PACKAGE_NAME: {{TEMPLATE_APP_NAME}}Kit
+
+jobs:
+  configure:
+    name: Configure Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      full-matrix: ${{ steps.check.outputs.full }}
+      cross-platform: ${{ steps.check.outputs.cross_platform }}
+      ubuntu-os: ${{ steps.matrix.outputs.ubuntu-os }}
+      ubuntu-swift: ${{ steps.matrix.outputs.ubuntu-swift }}
+      ubuntu-type: ${{ steps.matrix.outputs.ubuntu-type }}
+    steps:
+      - id: check
+        name: Determine matrix scope
+        run: |
+          FULL=false
+          CROSS_PLATFORM=false
+          REF="${{ github.ref }}"
+          EVENT="${{ github.event_name }}"
+          BASE_REF="${{ github.base_ref }}"
+
+          # Full matrix on main, semver branches, and workflow_dispatch
+          if [[ "$REF" == "refs/heads/main" ]]; then
+            FULL=true
+          elif [[ "$REF" =~ ^refs/heads/v?[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            FULL=true
+          elif [[ "$EVENT" == "workflow_dispatch" ]]; then
+            FULL=true
+          elif [[ "$EVENT" == "pull_request" ]]; then
+            if [[ "$BASE_REF" == "main" || "$BASE_REF" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+              FULL=true
+              CROSS_PLATFORM=true
+            fi
+          fi
+
+          echo "full=$FULL" >> "$GITHUB_OUTPUT"
+          echo "cross_platform=$CROSS_PLATFORM" >> "$GITHUB_OUTPUT"
+          echo "Full matrix: $FULL, Cross-platform: $CROSS_PLATFORM (ref=$REF, event=$EVENT, base_ref=$BASE_REF)"
+
+      - id: matrix
+        name: Build matrix values
+        run: |
+          if [[ "${{ steps.check.outputs.full }}" == "true" ]]; then
+            echo 'ubuntu-os=["noble","jammy"]' >> "$GITHUB_OUTPUT"
+            echo 'ubuntu-swift=[{"version":"6.3"}]' >> "$GITHUB_OUTPUT"
+            echo 'ubuntu-type=["","wasm","wasm-embedded"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ubuntu-os=["noble"]' >> "$GITHUB_OUTPUT"
+            echo 'ubuntu-swift=[{"version":"6.3"}]' >> "$GITHUB_OUTPUT"
+            echo 'ubuntu-type=[""]' >> "$GITHUB_OUTPUT"
+          fi
+
+  build-ubuntu:
+    name: Build on Ubuntu
+    needs: configure
+    runs-on: ubuntu-latest
+    container: swift:${{ matrix.swift.version }}-${{ matrix.os }}
+    if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(needs.configure.outputs.ubuntu-os) }}
+        swift: ${{ fromJSON(needs.configure.outputs.ubuntu-swift) }}
+        type: ${{ fromJSON(needs.configure.outputs.ubuntu-type) }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: brightdigit/swift-build@v1.5.2
+        id: build
+        with:
+          type: ${{ matrix.type }}
+          working-directory: Packages/${{ env.PACKAGE_NAME }}
+          wasmtime-version: 41.0.3
+      - uses: sersoft-gmbh/swift-coverage-action@v5
+        if: steps.build.outputs.contains-code-coverage == 'true'
+        id: coverage-files
+        with:
+          search-paths: Packages/${{ env.PACKAGE_NAME }}/.build
+          fail-on-empty-output: true
+      - name: Install curl for Codecov
+        if: steps.build.outputs.contains-code-coverage == 'true'
+        run: |
+          apt-get update
+          apt-get install -y curl
+      - name: Upload coverage to Codecov
+        if: steps.build.outputs.contains-code-coverage == 'true'
+        uses: codecov/codecov-action@v6
+        with:
+          fail_ci_if_error: true
+          flags: swift-${{ matrix.swift.version }}-${{ matrix.os }}
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ join(fromJSON(steps.coverage-files.outputs.files), ',') }}
+
+  # Windows: cross-platform PRs (to main/semver) and full-matrix branches only
+  build-windows:
+    name: Build on Windows
+    needs: configure
+    runs-on: windows-2025
+    if: ${{ needs.configure.outputs.cross-platform == 'true' && !contains(github.event.head_commit.message, 'ci skip') }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: brightdigit/swift-build@v1.5.2
+        id: build
+        with:
+          working-directory: Packages/${{ env.PACKAGE_NAME }}
+          windows-swift-version: swift-6.3-release
+          windows-swift-build: 6.3-RELEASE
+      - name: Upload coverage to Codecov
+        if: steps.build.outputs.contains-code-coverage == 'true'
+        uses: codecov/codecov-action@v6
+        with:
+          fail_ci_if_error: true
+          flags: swift-6.3,windows
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # Android: cross-platform PRs (to main/semver) and full-matrix branches only
+  build-android:
+    name: Build on Android
+    needs: configure
+    runs-on: ubuntu-latest
+    if: ${{ needs.configure.outputs.cross-platform == 'true' && !contains(github.event.head_commit.message, 'ci skip') }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+      - uses: brightdigit/swift-build@v1.5.2
+        id: build
+        with:
+          working-directory: Packages/${{ env.PACKAGE_NAME }}
+          scheme: ${{ env.PACKAGE_NAME }}
+          type: android
+          android-swift-version: "6.3"
+          android-api-level: 34
+          android-run-tests: true
+      - name: Upload coverage to Codecov
+        if: steps.build.outputs.contains-code-coverage == 'true'
+        uses: codecov/codecov-action@v6
+        with:
+          fail_ci_if_error: true
+          flags: android-api34-swift6.3
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # Target-platform builds — always runs (primary platforms per {{TEMPLATE_DESTINATIONS}})
+  # setup.sh customizes these matrix entries based on {{TEMPLATE_DESTINATIONS}}
+  build-macos:
+    name: Build on macOS
+    runs-on: [self-hosted, macOS]
+    if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
+    strategy:
+      matrix:
+        include:
+          # SPM Build Matrix
+          - package: "{{TEMPLATE_APP_NAME}}Kit"
+            xcode: "/Applications/Xcode.app"
+#
+          # SPM Build Matrix - App package (macOS compile check)
+          - package: "{{TEMPLATE_APP_NAME}}App"
+            xcode: "/Applications/Xcode.app"
+#
+          # iOS Build Matrix (always runs — primary platform)
+          - type: ios
+            xcode: "/Applications/Xcode.app"
+            deviceName: "iPhone 17 Pro"
+            osVersion: "26.4"
+#
+          # watchOS Build Matrix (always runs — companion platform)
+          - type: watchos
+            xcode: "/Applications/Xcode.app"
+            deviceName: "Apple Watch Ultra 3 (49mm)"
+            osVersion: "26.4"
+#
+    steps:
+      - uses: actions/checkout@v6
+#
+      - name: Build and Test
+        id: build
+        uses: brightdigit/swift-build@v1.5.2
+        with:
+          working-directory: Packages/${{ matrix.package || env.PACKAGE_NAME }}
+          scheme: ${{ matrix.package || env.PACKAGE_NAME }}-Package
+          type: ${{ matrix.type }}
+          xcode: ${{ matrix.xcode }}
+          deviceName: ${{ matrix.deviceName }}
+          osVersion: ${{ matrix.osVersion }}
+#
+      # Common Coverage Steps
+      - name: Process Coverage
+        if: steps.build.outputs.contains-code-coverage == 'true'
+        id: coverage-files
+        uses: sersoft-gmbh/swift-coverage-action@v5
+        with:
+          search-paths: ${{ matrix.type && env.DERIVED_DATA_PATH || format('Packages/{0}/.build', matrix.package || env.PACKAGE_NAME) }}
+          fail-on-empty-output: true
+#
+      - name: Upload Coverage
+        if: steps.build.outputs.contains-code-coverage == 'true'
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: ${{ matrix.type && format('{0}{1}', matrix.type, matrix.osVersion) || format('spm-{0}', matrix.package || env.PACKAGE_NAME) }}
+          files: ${{ join(fromJSON(steps.coverage-files.outputs.files), ',') }}
+#
+
+  # Cross-platform builds — only on main, semver branches, PRs targeting them, and workflow_dispatch
+  build-macos-platforms:
+    name: Build on macOS (Platforms)
+    needs: configure
+    runs-on: [self-hosted, macOS]
+    if: ${{ needs.configure.outputs.full-matrix == 'true' && !contains(github.event.head_commit.message, 'ci skip') }}
+    strategy:
+      matrix:
+        include:
+          # macOS Build Matrix
+          - type: macos
+            xcode: "/Applications/Xcode.app"
+#
+          # tvOS Build Matrix
+          - type: tvos
+            xcode: "/Applications/Xcode.app"
+            deviceName: "Apple TV"
+            osVersion: "26.4"
+#
+          # visionOS Build Matrix
+          - type: visionos
+            xcode: "/Applications/Xcode.app"
+            deviceName: "Apple Vision Pro"
+            osVersion: "26.4"
+#
+    steps:
+      - uses: actions/checkout@v6
+#
+      - name: Build and Test
+        id: build
+        uses: brightdigit/swift-build@v1.5.2
+        with:
+          working-directory: Packages/${{ env.PACKAGE_NAME }}
+          scheme: ${{ env.PACKAGE_NAME }}-Package
+          type: ${{ matrix.type }}
+          xcode: ${{ matrix.xcode }}
+          deviceName: ${{ matrix.deviceName }}
+          osVersion: ${{ matrix.osVersion }}
+          download-platform: ${{ matrix.download-platform }}
+#
+      - name: Process Coverage
+        if: steps.build.outputs.contains-code-coverage == 'true'
+        id: coverage-files
+        uses: sersoft-gmbh/swift-coverage-action@v5
+        with:
+          search-paths: ${{ env.DERIVED_DATA_PATH }}
+          fail-on-empty-output: true
+#
+      - name: Upload Coverage
+        if: steps.build.outputs.contains-code-coverage == 'true'
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: ${{ format('{0}{1}', matrix.type, matrix.osVersion) }}
+          files: ${{ join(fromJSON(steps.coverage-files.outputs.files), ',') }}
+#
+
+  # [FULL_STACK_ONLY_BEGIN]
+  build-server-linux:
+    name: Build Server Package (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.2-noble
+    if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test Server Package
+        run: swift test --package-path Packages/{{TEMPLATE_APP_NAME}}Server
+#
+  # [FULL_STACK_ONLY_END]
+#
+  lint:
+    name: Linting
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && !failure() && !contains(github.event.head_commit.message, 'ci skip') }}
+    needs: [build-ubuntu, build-macos, build-macos-platforms, build-windows, build-android,
+            # [FULL_STACK_ONLY_BEGIN]
+            build-server-linux
+            # [FULL_STACK_ONLY_END]
+           ]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+      - name: Lint
+        run: |
+          set -e
+          CI=true LINT_MODE=STRICT ./Scripts/lint.sh
+#
+  fastlane:
+    needs: [build-macos, lint]
+    if: ${{ !cancelled() && needs.build-macos.result == 'success' && needs.lint.result == 'success' }}
+    runs-on: [self-hosted, macOS]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+          cache_save: false # tools persist on self-hosted runner; 2.7 GB upload stalls at 0 MB/s every run
+
+      - name: Setup and Pull Git LFS
+        run: |
+          mise exec ubi:git-lfs/git-lfs -- git lfs version
+          mise exec ubi:git-lfs/git-lfs -- git lfs install --local
+          mise exec ubi:git-lfs/git-lfs -- git lfs pull --include="*"
+          mise exec ubi:git-lfs/git-lfs -- git lfs status
+          mise exec ubi:git-lfs/git-lfs -- git lfs checkout
+
+      - name: Cache RubyGems
+        uses: actions/cache@v5
+        with:
+          path: vendor/ruby
+          key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-gems-
+
+      - name: Setup Ruby
+        run: |
+          ruby --version
+          gem install bundler
+          bundle install
+
+      - name: Setup Xcode Project
+        run: tuist generate
+        env:
+          TUIST_CONFIG_TOKEN: ${{ secrets.TUIST_CONFIG_TOKEN }}
+          TUIST_LINT_MODE: none
+          DEVELOPER_DIR: /Applications/Xcode.app
+
+      - name: Determine Build Action
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "📦 Production release: will build with IS_BETA=NO and upload to TestFlight"
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "📦 Will upload to TestFlight (main branch detected)"
+          else
+            echo "📦 Will create release build only (branch: ${{ github.ref_name }})"
+          fi
+
+      - name: Build Archive
+        run: bundle exec fastlane ${{ github.ref == 'refs/heads/main' && 'beta' || 'release_build' }}
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_KEYCHAIN_PASSWORD: ${{ secrets.FASTLANE_KEYCHAIN_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+          DEVELOPER_DIR: /Applications/Xcode.app
+          FASTLANE_XCARGS: ${{ github.event_name == 'workflow_dispatch' && 'IS_BETA=NO' || '' }}
+
+      - name: Upload fastlane logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastlane-logs
+          path: fastlane/logs/
+          retention-days: 7
+
+      - name: Sync Build Number from TestFlight
+        if: github.ref == 'refs/heads/main'
+        run: bundle exec fastlane sync_build_number
+        env:
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+
+      - name: Commit Production Release Version
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Config/Version.xcconfig
+          git commit -m "Mark production release build [ci skip]"
+          git push

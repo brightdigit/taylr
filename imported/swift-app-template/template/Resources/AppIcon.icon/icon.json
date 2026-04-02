@@ -1,0 +1,25 @@
+{
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "app-placeholder.svg",
+          "name" : "placeholder",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

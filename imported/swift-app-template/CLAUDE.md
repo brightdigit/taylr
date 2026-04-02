@@ -12,6 +12,7 @@ This is a **GitHub template repository** being built to provide reusable Swift a
 |---|---|
 | `_reference/MonthBar/` | **Primary source** — all infrastructure to extract (Tuist, Fastlane, CI, linting, etc.) |
 | `_reference/Bitness/` | Full-stack reference — Server package pattern (Hummingbird + OpenAPI) |
+| `_reference/AtLeast/` | iOS/watchOS companion app reference — multi-platform Fastlane, dynamic CI matrix |
 
 These live under `_reference/` and will be removed (and scrubbed from git history) before the template is published.
 
@@ -32,6 +33,15 @@ All app-specific values use `{{TEMPLATE_*}}` tokens that `Scripts/setup.sh` repl
 | `{{TEMPLATE_PACKAGE_NAME}}` | `WeatherBarKit` |
 | `{{TEMPLATE_YEAR}}` | `2026` |
 | `{{TEMPLATE_SERVER_PORT}}` | `8080` *(full-stack only — Dockerfile, openapi.yaml, server Swift source)* |
+| `{{TEMPLATE_MARKETING_URL}}` | `https://example.com/` |
+| `{{TEMPLATE_PRIVACY_URL}}` | `https://example.com/privacy-policy.html` |
+| `{{TEMPLATE_SUPPORT_URL}}` | `https://example.com/support` |
+| `{{TEMPLATE_FASTLANE_PLATFORM}}` | `mac` *(fastlane platform identifier — `mac`, `ios`, `tvos`, `watchos`)* |
+| `{{TEMPLATE_PRODUCE_PLATFORM}}` | `osx` *(`produce` action platform string — `osx`, `ios`, `tvos`, `watchos`)* |
+| `{{TEMPLATE_TEST_DESTINATION}}` | `platform=macOS` *(xcodebuild destination string)* |
+| `{{TEMPLATE_BUILD_ARTIFACT_EXT}}` | `pkg` *(`pkg` for macOS, `ipa` for iOS/tvOS/watchOS)* |
+| `{{TEMPLATE_DESTINATIONS}}` | `[.iPhone, .iPad]` *(Tuist destinations array — e.g., `[.mac]`, `[.iPhone, .iPad]`)* |
+| `{{TEMPLATE_DEPLOYMENT_TARGET}}` | `.iOS("26.0")` *(Tuist deploymentTargets — e.g., `.macOS("26.0")`, `.iOS("26.0")`)* |
 
 `{{TEMPLATE_BUNDLE_ID}}` is auto-derived by `setup.sh` as `com.<org_slug>.<APP_NAME>` (org name lowercased, punctuation removed).
 

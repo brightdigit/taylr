@@ -1,0 +1,19 @@
+# Appfile for {{TEMPLATE_APP_NAME}}
+# App configuration for Fastlane
+
+# App Identifier (Bundle ID) - MUST match Tuist/Project.swift
+app_identifier("{{TEMPLATE_BUNDLE_ID}}")
+
+# App Name and App Groups are configured in fastlane/Config.rb
+
+# Apple ID for App Store Connect
+apple_id("{{TEMPLATE_APPLE_ID}}")
+
+# Team ID (for code signing)
+team_id("{{TEMPLATE_TEAM_ID}}") # Developer Portal Team ID
+
+# iTunes Connect Team ID (if different from Developer Portal Team ID)
+itc_team_id("{{TEMPLATE_ITC_TEAM_ID}}") # App Store Connect Team ID
+
+# For more information about the Appfile, see:
+# https://docs.fastlane.tools/advanced/#appfile
