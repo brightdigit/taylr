@@ -306,7 +306,7 @@ TARGET_FILES=(
   .mise.toml
   Scripts/lint.sh
   fastlane/Appfile
-  fastlane/Config.rb
+  fastlane/.env.default
   fastlane/Fastfile
   fastlane/Matchfile
   .github/app.workflow.yml

@@ -1,27 +1,41 @@
 # Matchfile for {{TEMPLATE_APP_NAME}}
-# Certificate and provisioning profile management
+#
+# Configures fastlane `match` — the action that syncs encrypted code-signing
+# certificates and provisioning profiles via a private git repo. Encryption
+# uses a passphrase from the MATCH_PASSWORD env var (or interactive prompt).
+# This file holds the *defaults*; lanes in Fastfile override `type` per call
+# (development vs appstore) and `readonly` per environment (true in CI).
 
-# Git repository for storing certificates and profiles
-# MUST be a private repository
+# SSH or HTTPS URL of the private repo that stores the encrypted certs and
+# profiles. MUST be private — anyone with read access + MATCH_PASSWORD can
+# decrypt the signing identities. CI authenticates via either a deploy key
+# or the MATCH_GIT_BASIC_AUTHORIZATION env var.
 git_url("{{TEMPLATE_CERTS_REPO}}")
 
-# Storage mode (git or google_cloud)
+# Where the encrypted material is stored. `git` is the most common; match
+# also supports `google_cloud` and `s3` for teams that don't want a repo.
 storage_mode("git")
 
-# App Identifier - sync with Appfile
+# Apps managed by this Matchfile. An array because match can manage multiple
+# bundle IDs from one file. Keep this in sync with Appfile's `app_identifier`.
 app_identifier(["{{TEMPLATE_BUNDLE_ID}}"])
 
-# Team ID - sync with Appfile
+# Developer Portal team ID — must match Appfile's `team_id`.
 team_id("{{TEMPLATE_TEAM_ID}}")
 
-# Username (Apple ID)
+# Apple ID used to authenticate when generating new certs/profiles. CI uses
+# the App Store Connect API key instead, so this is mostly for local runs.
 username("{{TEMPLATE_APPLE_ID}}")
 
-# Generate certificates for these types
-type("development") # Can be: appstore, adhoc, development, enterprise, developer_id
+# Default cert type if none is passed to `match`. Lanes in Fastfile always
+# pass an explicit type, so this default rarely takes effect — it's kept for
+# convenience when calling `match` directly from the command line.
+# Valid values: appstore, adhoc, development, enterprise, developer_id
+type("development")
 
-# Clone entire certificate repository if needed (slower but safer)
-# If false, only downloads required certificates
+# `shallow_clone(true)` makes match clone only the latest commit of the certs
+# repo — faster on CI but loses history if you need to roll back. Default
+# (full clone) is safer; uncomment to enable.
 # shallow_clone(false)
 
 # For more information about the Matchfile, see:

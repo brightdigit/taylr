@@ -1,19 +1,26 @@
 # Appfile for {{TEMPLATE_APP_NAME}}
-# App configuration for Fastlane
+#
+# Identifies the app and team to fastlane. Read by every lane via
+# CredentialsManager::AppfileConfig.try_fetch_value(...). Keep these values in
+# sync with Project.swift (bundle ID) and the Matchfile (team_id, username).
+#
+# Non-identity config (app name, beta metadata, platform strings) lives in fastlane/.env.default.
 
-# App Identifier (Bundle ID) - MUST match Tuist/Project.swift
+# Bundle ID — MUST match the bundle ID in Project.swift, otherwise `match`
+# will fetch profiles for the wrong app.
 app_identifier("{{TEMPLATE_BUNDLE_ID}}")
 
-# App Name and App Groups are configured in fastlane/Config.rb
-
-# Apple ID for App Store Connect
+# Apple ID used to log in to App Store Connect for actions that don't go
+# through the API key (e.g. `produce`).
 apple_id("{{TEMPLATE_APPLE_ID}}")
 
-# Team ID (for code signing)
-team_id("{{TEMPLATE_TEAM_ID}}") # Developer Portal Team ID
+# Team ID from the Developer Portal — used for code signing identity lookups.
+team_id("{{TEMPLATE_TEAM_ID}}")
 
-# iTunes Connect Team ID (if different from Developer Portal Team ID)
-itc_team_id("{{TEMPLATE_ITC_TEAM_ID}}") # App Store Connect Team ID
+# App Store Connect team ID. Often the same as `team_id` for individual
+# accounts, but different when an Apple ID belongs to multiple App Store
+# Connect teams. Required to disambiguate which team to upload under.
+itc_team_id("{{TEMPLATE_ITC_TEAM_ID}}")
 
 # For more information about the Appfile, see:
 # https://docs.fastlane.tools/advanced/#appfile

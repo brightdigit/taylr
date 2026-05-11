@@ -90,7 +90,6 @@ make certs-regenerate-appstore # force regenerate App Store profiles
 # App Store submission
 make beta                       # build and upload to TestFlight
 make screenshots-all            # capture and frame App Store screenshots (iOS/tvOS/watchOS only)
-fastlane submit_for_review      # submit current build for App Store review
 fastlane upload_privacy_details # upload App Privacy nutrition labels
 fastlane sync_last_release      # record live App Store build (run after release)
 ```

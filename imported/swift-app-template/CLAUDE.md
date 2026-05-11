@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Repo Is
 
-This is a **GitHub template repository** being built to provide reusable Swift app infrastructure (Tuist, Fastlane, CI, linting, Swift Testing, Claude Code integration) for any Apple platform app. The full implementation plan is in `.claude/PLAN.md`.
+This is a **GitHub template repository** being built to provide reusable Swift app infrastructure (Tuist, Fastlane, CI, linting, Swift Testing, Claude Code integration) for any Apple platform app.
 
 ### Reference Projects (temporary — will be deleted before publishing)
 
