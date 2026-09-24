@@ -309,6 +309,7 @@ TARGET_FILES=(
   fastlane/.env.default
   fastlane/Fastfile
   fastlane/Matchfile
+  fastlane/Snapfile
   .github/app.workflow.yml
 )
 

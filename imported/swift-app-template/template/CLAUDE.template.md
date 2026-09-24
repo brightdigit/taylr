@@ -89,8 +89,11 @@ make certs-regenerate-appstore # force regenerate App Store profiles
 
 # App Store submission
 make beta                       # build and upload to TestFlight
-make screenshots-all            # capture and frame App Store screenshots (iOS/tvOS/watchOS only)
-fastlane upload_privacy_details # upload App Privacy nutrition labels
+make capture-all                # capture and frame App Store screenshots (iOS/tvOS/watchOS only)
+make sync-app-store             # upload metadata/screenshots/age rating without a binary
+make privacy-details            # upload App Privacy labels (needs FASTLANE_SESSION in CI)
+make sync-featuring-nomination  # push fastlane/nominations/*.yml to App Store Connect
+make add-dev-device UDID=... NAME=...  # register a device + refresh dev profiles
 ```
 
 ### Versioning

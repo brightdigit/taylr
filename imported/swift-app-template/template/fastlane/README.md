@@ -23,6 +23,14 @@ Lanes run under the platform set by `PLATFORM` in `fastlane/.env.default`, so th
 
 Register app in Apple Developer Portal and App Store Connect
 
+### setup_groups
+
+```sh
+[bundle exec] fastlane setup_groups
+```
+
+Create the App Group identifier and associate it with the App ID
+
 ### sync_certificates_development
 
 ```sh
@@ -38,6 +46,22 @@ Sync development certificates and provisioning profiles
 ```
 
 Force regenerate development provisioning profiles with updated capabilities
+
+### add_dev_device
+
+```sh
+[bundle exec] fastlane add_dev_device
+```
+
+Usage: fastlane add_dev_device udid:<device-udid> name:"My iPhone"
+
+### nuke_development_certs
+
+```sh
+[bundle exec] fastlane nuke_development_certs
+```
+
+Revoke and delete the shared development certificate + profiles (team-wide)
 
 ### sync_certificates_appstore
 
@@ -103,13 +127,29 @@ Build release version for App Store
 
 Set CURRENT_PROJECT_VERSION from latest TestFlight build + 1
 
-### screenshot
+### capture_ios
 
 ```sh
-[bundle exec] fastlane screenshot
+[bundle exec] fastlane capture_ios
 ```
 
-Capture screenshots for App Store
+Capture App Store screenshots using snapshot (settings in fastlane/Snapfile)
+
+### capture_frame
+
+```sh
+[bundle exec] fastlane capture_frame
+```
+
+Frame screenshots with device bezels and marketing text
+
+### capture_all
+
+```sh
+[bundle exec] fastlane capture_all
+```
+
+Capture all screenshots and frame them
 
 ### beta
 
@@ -133,7 +173,7 @@ Deploy to App Store
 [bundle exec] fastlane upload_metadata
 ```
 
-Upload metadata and screenshots without a binary
+Metadata only — the binary is uploaded separately by the `beta` lane.
 
 ### upload_privacy_details
 
@@ -141,7 +181,15 @@ Upload metadata and screenshots without a binary
 [bundle exec] fastlane upload_privacy_details
 ```
 
-Upload App Privacy nutrition labels (no data collected)
+Upload App Privacy nutrition labels from fastlane/app_privacy_details.json
+
+### sync_featuring_nomination
+
+```sh
+[bundle exec] fastlane sync_featuring_nomination
+```
+
+Options: file:path, name:<file name>, dry_run:true, submit:true (human editorial submit)
 
 ----
 

@@ -1,0 +1,19 @@
+{
+  "device_frame_version": "latest",
+  "default": {
+    "background": "../background.png",
+    "keyword": {
+      "color": "#FFFFFF",
+      "font": "marketing-font.ttf"
+    },
+    "title": {
+      "color": "#FFFFFF",
+      "font": "marketing-font.ttf"
+    },
+    "padding": 50,
+    "show_complete_frame": true,
+    "title_below_image": false,
+    "stack_title": true
+  },
+  "data": []
+}
