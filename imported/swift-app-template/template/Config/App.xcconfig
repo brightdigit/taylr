@@ -1,0 +1,7 @@
+// Entry-point xcconfig for all target configurations (referenced from
+// Project.swift).
+//
+// Version.xcconfig is wholly owned and REWRITTEN by Scripts/update-version.sh,
+// so anything that must survive a version bump lives in its own included file
+// here instead.
+#include "Version.xcconfig"

@@ -34,10 +34,18 @@ on:
       - 'LICENSE'
       - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
+    inputs:
+      production_release:
+        description: "Drop the beta marker and ship this build as a production release (main only)"
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  # Never cancel a manual dispatch. A production release uploads to TestFlight and then
+  # records that fact in two commits; being cancelled in between would leave a released
+  # build with no trace in git. Pushes/PRs keep the cancel-on-supersede behaviour.
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 env:
   PACKAGE_NAME: {{TEMPLATE_APP_NAME}}Kit
@@ -351,6 +359,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          # Push events leave a detached HEAD unless `ref` is set; detached HEAD
+          # makes the later `git pull --rebase` / `git push` fail and drops the
+          # synced build-number commit. workflow_dispatch commits too, so it needs
+          # the branch as well.
+          #
+          # NOT on `pull_request`: there `github.ref_name` is `<pr>/merge`, which
+          # checkout resolves as `refs/heads/<pr>/merge` — no such branch exists, so
+          # the fetch fails. Empty means "use the default ref" (the merge commit).
+          # Every commit/push step below is gated on `refs/heads/main`.
+          ref: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref_name || '' }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: jdx/mise-action@v4
@@ -381,6 +399,28 @@ jobs:
           gem install bundler
           bundle install
 
+      # Must run BEFORE tuist generate / build_app so the xcconfig is final by the time
+      # xcodebuild resolves $(BETA_BASE_BUILD) into the Info.plist. Captures the current
+      # base so the beta line can be restored afterwards (see "Resume Beta" below).
+      - name: Mark Production Release
+        id: beta
+        if: inputs.production_release && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          BASE=$(grep -E '^[[:space:]]*BETA_BASE_BUILD[[:space:]]*=' Config/Version.xcconfig \
+                 | head -n1 | cut -d= -f2 | tr -d '[:space:]')
+          if [ -z "$BASE" ]; then
+            echo "::error::No BETA_BASE_BUILD in Config/Version.xcconfig — main is already in release state. Nothing to promote."
+            exit 1
+          fi
+          if ! [[ "$BASE" =~ ^[0-9]+$ ]]; then
+            echo "::error::BETA_BASE_BUILD is not an integer: '$BASE'"
+            exit 1
+          fi
+          echo "beta_base=$BASE" >> "$GITHUB_OUTPUT"
+          ./Scripts/update-version.sh --release
+          echo "🚀 Beta marker dropped — this build ships as a production release."
+
       - name: Setup Xcode Project
         run: tuist generate
         env:
@@ -390,8 +430,8 @@ jobs:
 
       - name: Determine Build Action
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "📦 Production release: will build with IS_BETA=NO and upload to TestFlight"
+          if [ "${{ inputs.production_release }}" == "true" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "📦 Production release: beta marker dropped, will upload to TestFlight as a release build"
           elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "📦 Will upload to TestFlight (main branch detected)"
           else
@@ -407,7 +447,6 @@ jobs:
           APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
           APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
           DEVELOPER_DIR: /Applications/Xcode.app
-          FASTLANE_XCARGS: ${{ github.event_name == 'workflow_dispatch' && 'IS_BETA=NO' || '' }}
 
       - name: Upload fastlane logs on failure
         if: failure()
@@ -418,18 +457,96 @@ jobs:
           retention-days: 7
 
       - name: Sync Build Number from TestFlight
-        if: github.ref == 'refs/heads/main'
+        # Only after a successful TestFlight upload. The bump computes
+        # testflight_build + 1, so running it on a failed/partial upload would
+        # desync the build number.
+        #
+        # Skipped for a production release: that flow owns the version file end to end
+        # (drop beta -> commit release -> restore beta -> increment) and running this
+        # too would double-bump and race its commits.
+        if: success() && github.ref == 'refs/heads/main' && inputs.production_release != true
         run: bundle exec fastlane sync_build_number
         env:
           APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
           APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
 
-      - name: Commit Production Release Version
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      # Persist the synced build number so the next build — and any version branch
+      # cut from main — starts from it instead of recomputing and conflicting on the
+      # next upload.
+      #
+      # Deliberately commits ONLY Config/Version.xcconfig: the runner is self-hosted
+      # and persistent, so its working tree may carry stray tuist output that
+      # `git add -A` would sweep in.
+      - name: Commit Synced Build Number
+        if: success() && github.ref == 'refs/heads/main' && inputs.production_release != true
         run: |
+          BUILD=$(grep CURRENT_PROJECT_VERSION Config/Version.xcconfig | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+
+          # A stale latest_testflight_build from the App Store Connect API would
+          # otherwise silently LOWER the build number and break the next upload.
+          PREVIOUS=$(git show HEAD:Config/Version.xcconfig | grep CURRENT_PROJECT_VERSION | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+          if [ -z "$PREVIOUS" ]; then
+            echo "::error::Could not read committed build number from HEAD:Config/Version.xcconfig."
+            exit 1
+          fi
+          if [ "$BUILD" -lt "$PREVIOUS" ]; then
+            echo "::error::Synced build number $BUILD is lower than committed $PREVIOUS — refusing to commit."
+            exit 1
+          fi
+
+          if git diff --quiet -- Config/Version.xcconfig; then
+            echo "Build number already at $BUILD — nothing to commit."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Config/Version.xcconfig
-          git commit -m "Mark production release build [ci skip]"
+          git commit -m "chore: sync build number to $BUILD [ci skip]"
+          # Cheap insurance against a push landing outside this workflow's
+          # concurrency group between checkout and here.
+          git pull --rebase
           git push
+
+      # ---- Production release bookkeeping (workflow_dispatch + production_release) ----
+      # Both steps are success()-gated, so a failed build or upload leaves the repo
+      # untouched — the dropped beta line only ever existed in the runner's working tree.
+
+      - name: Commit Production Release Build
+        if: success() && inputs.production_release && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          VERSION=$(grep MARKETING_VERSION Config/Version.xcconfig | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+          BUILD=$(grep CURRENT_PROJECT_VERSION Config/Version.xcconfig | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Config/Version.xcconfig
+          # Not pushed yet — the resume-beta commit below pushes both together.
+          git commit -m "chore: release build $VERSION ($BUILD) [ci skip]"
+          echo "✅ Recorded release build $VERSION ($BUILD)"
+
+      - name: Resume Beta And Increment Build
+        if: success() && inputs.production_release && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          # +1 absorbs the build number just consumed by the release, which never ships as
+          # a beta. Without it the sequence gains a permanent gap: base 0 with the release
+          # at build 8 would make build 9 read "beta 9", skipping beta 8 entirely.
+          NEXT_BASE=$(( ${{ steps.beta.outputs.beta_base }} + 1 ))
+          ./Scripts/update-version.sh --beta "$NEXT_BASE"
+          # --increment preserves the base just restored. Deliberately NOT
+          # sync_build_number: upload_to_testflight runs with
+          # skip_waiting_for_build_processing, so the API can still report the previous
+          # build right after upload and hand back a value equal to the release build.
+          ./Scripts/update-version.sh --increment
+
+          VERSION=$(grep MARKETING_VERSION Config/Version.xcconfig | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+          BUILD=$(grep CURRENT_PROJECT_VERSION Config/Version.xcconfig | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+
+          git add Config/Version.xcconfig
+          git commit -m "chore: resume beta at build $BUILD (base $NEXT_BASE) [ci skip]"
+          git pull --rebase
+          git push
+          echo "✅ Next beta is $VERSION beta $(( BUILD - NEXT_BASE )) (build $BUILD, base $NEXT_BASE)"

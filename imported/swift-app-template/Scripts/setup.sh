@@ -407,6 +407,18 @@ if [[ -d "$OLD_KIT_SOURCES" ]]; then
   rm -rf "$OLD_KIT_SOURCES"
 fi
 
+# Same merge for tests: the template ships VersionInfoTests.swift in
+# Tests/{{TEMPLATE_APP_NAME}}KitTests/; TemplateGenerator writes Tests/${APP_NAME}KitTests/.
+OLD_KIT_TESTS="Packages/${TEMPLATE_TOKEN}Kit/Tests/${TEMPLATE_TOKEN}KitTests"
+NEW_KIT_TESTS="Packages/${TEMPLATE_TOKEN}Kit/Tests/${APP_NAME}KitTests"
+if [[ -d "$OLD_KIT_TESTS" ]]; then
+  mkdir -p "$NEW_KIT_TESTS"
+  if [[ -n "$(ls -A "$OLD_KIT_TESTS" 2>/dev/null)" ]]; then
+    mv "$OLD_KIT_TESTS"/* "$NEW_KIT_TESTS"/
+  fi
+  rm -rf "$OLD_KIT_TESTS"
+fi
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Activate app.yml Workflow
 # ══════════════════════════════════════════════════════════════════════════════

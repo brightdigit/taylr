@@ -91,7 +91,21 @@ make certs-regenerate-appstore # force regenerate App Store profiles
 make beta                       # build and upload to TestFlight
 make screenshots-all            # capture and frame App Store screenshots (iOS/tvOS/watchOS only)
 fastlane upload_privacy_details # upload App Privacy nutrition labels
-fastlane sync_last_release      # record live App Store build (run after release)
+```
+
+### Versioning
+
+`Config/Version.xcconfig` is written only by `Scripts/update-version.sh`. A `BETA_BASE_BUILD`
+line marks a beta build (displayed as `X.Y.Z beta N`, where N = build − base); removing it marks
+a production release. CI manages this automatically — see the `production_release` input on the
+app workflow.
+
+```bash
+./Scripts/update-version.sh 1.2.0      # set marketing version (build → 1), keeps beta state
+./Scripts/update-version.sh --increment # bump build number, keeps beta state
+./Scripts/update-version.sh --beta 12   # mark as beta counting from build 12
+./Scripts/update-version.sh --release   # drop the beta line (production)
+fastlane sync_build_number              # set build to latest TestFlight build + 1
 ```
 
 ## Swift Testing Conventions

@@ -30,6 +30,8 @@ internal let project = Project(
           // Version info from xcconfig
           "CFBundleShortVersionString": "$(MARKETING_VERSION)",
           "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
+          // Empty for a release build; see VersionInfo.displayVersion
+          "BetaBaseBuild": "$(BETA_BASE_BUILD)",
           "NSHumanReadableCopyright": "Copyright © {{TEMPLATE_YEAR}} {{TEMPLATE_ORG_NAME}}",
           // Required for full-screen SwiftUI on iOS
           "UILaunchScreen": [:],
@@ -73,7 +75,7 @@ internal let project = Project(
               "PROVISIONING_PROFILE_SPECIFIER":
                 "match Development {{TEMPLATE_BUNDLE_ID}}",
             ],
-            xcconfig: .relativeToRoot("Config/Version.xcconfig")
+            xcconfig: .relativeToRoot("Config/App.xcconfig")
           ),
           .release(
             name: "Release",
@@ -82,7 +84,7 @@ internal let project = Project(
               "PROVISIONING_PROFILE_SPECIFIER":
                 "match AppStore {{TEMPLATE_BUNDLE_ID}}",
             ],
-            xcconfig: .relativeToRoot("Config/Version.xcconfig")
+            xcconfig: .relativeToRoot("Config/App.xcconfig")
           ),
         ]
       )

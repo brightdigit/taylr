@@ -13,7 +13,7 @@ require 'credentials_manager'
 #                 sync_certificates_appstore, regenerate_development_profiles,
 #                 regenerate_appstore_profiles, regenerate_all_profiles
 #   Test/Build  — test, build, release_build
-#   Versioning  — sync_build_number, sync_last_release
+#   Versioning  — sync_build_number
 #   Beta        — beta
 #   Release     — release, upload_metadata, upload_privacy_details
 #   Helpers     — setup_api_key (private)
@@ -260,6 +260,14 @@ platform ENV.fetch("PLATFORM").to_sym do
   # produce builds, and survives clean checkouts/CI machines.
   desc "Set CURRENT_PROJECT_VERSION from latest TestFlight build + 1"
   lane :sync_build_number do
+    # Without API credentials `latest_testflight_build_number` falls back to
+    # Apple ID auth, which prompts (or hangs) in CI — fail with a clear error.
+    unless ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"]
+      UI.user_error!("Missing App Store Connect API credentials! Set these environment variables:\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_KEY_ID\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_ISSUER_ID\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_KEY")
+    end
     setup_api_key
 
     testflight_build = latest_testflight_build_number(
@@ -271,30 +279,13 @@ platform ENV.fetch("PLATFORM").to_sym do
     UI.message("Latest TestFlight build: #{testflight_build}")
     UI.message("New build number: #{new_build}")
 
-    sh("cd .. && ./Scripts/update-version.sh --set-build #{new_build}")
+    # update-version.sh preserves the BETA_BASE_BUILD line, so only the
+    # build number changes.
+    xcconfig = File.read("../Config/Version.xcconfig")
+    marketing_version = xcconfig.match(/MARKETING_VERSION = (.+)/)[1].strip
+    sh("cd .. && ./Scripts/update-version.sh #{marketing_version} #{new_build}")
 
     UI.success("✅ Build number set to #{new_build}")
-  end
-
-  # Records the build number currently live on the App Store as
-  # LAST_RELEASE_BUILD. Used to compute the range of commits between releases
-  # for changelog generation. Run this once a new version is approved and
-  # published, so the next changelog spans only the new commits.
-  desc "Set LAST_RELEASE_BUILD from the live App Store build. Run this after a release is approved by Apple."
-  lane :sync_last_release do
-    setup_api_key
-
-    live_build = app_store_build_number(
-      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier),
-      live: true,
-      initial_build_number: 0
-    )
-
-    UI.message("Live App Store build: #{live_build}")
-
-    sh("cd .. && ./Scripts/update-version.sh --set-last-release #{live_build}")
-
-    UI.success("✅ Last release build set to #{live_build}")
   end
 
   # Placeholder lane for App Store screenshots. Fastlane's `snapshot` action
@@ -312,7 +303,7 @@ platform ENV.fetch("PLATFORM").to_sym do
     UI.message("4. Save to Marketing/Screenshots/")
   end
 
-  # The end-to-end TestFlight pipeline: build → upload binary → upload metadata.
+  # The end-to-end TestFlight pipeline: build → upload binary.
   # Called from CI on the main branch (see .github/workflows/app.yml) after
   # `sync_build_number` has bumped CURRENT_PROJECT_VERSION.
   desc "Upload to TestFlight for beta testing"
@@ -346,9 +337,10 @@ platform ENV.fetch("PLATFORM").to_sym do
     testflight_opts[:apple_id] = app_store_app_id if app_store_app_id && !app_store_app_id.empty?
     upload_to_testflight(**testflight_opts)
 
-    # Sync metadata/screenshots in the same pass so the TestFlight listing
-    # always matches what's in fastlane/metadata.
-    upload_metadata
+    # Metadata is deliberately NOT uploaded here: a locked or in-review App
+    # Store version would fail this lane after the binary is already up, and
+    # in CI that also skips the build-number commit. Run `upload_metadata`
+    # (or the app-store-metadata workflow) separately.
 
     UI.success("✅ Build uploaded to TestFlight!")
     UI.message("Beta testers will be notified once processing completes")
