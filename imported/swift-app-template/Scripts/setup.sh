@@ -311,6 +311,8 @@ TARGET_FILES=(
   fastlane/Matchfile
   fastlane/Snapfile
   .github/app.workflow.yml
+  .github/app-store-metadata.workflow.yml
+  .github/asc-session.workflow.yml
 )
 
 info "Replacing tokens in target files..."
@@ -426,6 +428,8 @@ fi
 
 info "Activating GitHub workflow..."
 mv .github/app.workflow.yml .github/workflows/app.yml
+mv .github/app-store-metadata.workflow.yml .github/workflows/app-store-metadata.yml
+mv .github/asc-session.workflow.yml .github/workflows/asc-session.yml
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Full-Stack: Keep or Remove Server Package

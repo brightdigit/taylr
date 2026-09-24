@@ -1,0 +1,100 @@
+# ─── ASC Session Check Workflow ───────────────────────────────────────
+# Activate: mv .github/asc-session.workflow.yml .github/workflows/asc-session.yml
+# (done automatically by Scripts/setup.sh — staged outside workflows/ so the
+# weekly schedule doesn't run in the template repo itself)
+name: ASC Session Check
+#
+# Weekly liveness check on FASTLANE_SESSION.
+#
+# WHY THIS EXISTS
+#
+# `upload_app_privacy_details_to_app_store` — the `upload_privacy_details` lane,
+# and the step in `upload_metadata` that publishes the App Privacy nutrition label —
+# has NO `api_key` option. It calls:
+#
+#   Spaceship::ConnectAPI.login(username, use_portal: false, use_tunes: true)
+#
+# i.e. Apple ID session auth against the legacy Tunes API. The App Store Connect
+# API key is ignored entirely. `upload_metadata` therefore wraps it in a
+# begin/rescue so a missing session cannot sink the whole listing sync — which
+# means a dead session degrades to a one-line warning in a log nobody reads, and
+# the privacy label silently stops being updated.
+#
+# Locally it is worse than silent: it SUCCEEDS off a cached session in
+# ~/.fastlane/spaceship/, which can make it look like the ASC API key has write
+# permission when it does not.
+#
+# An Apple session lasts roughly a month. This job fails loudly while there is
+# still time to do something about it, rather than at submission.
+#
+# WHEN THIS FAILS
+#
+#   fastlane spaceauth -u {{TEMPLATE_APPLE_ID}}
+#
+# Complete the 2FA prompt, then copy the printed FASTLANE_SESSION value into the
+# repository secret of the same name.
+#
+# Required GitHub Secrets:
+#   - FASTLANE_SESSION  (from `fastlane spaceauth`, regenerate ~monthly)
+
+on:
+  schedule:
+    # Mondays 14:00 UTC — early enough in the week to act on a failure.
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: asc-session
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check FASTLANE_SESSION
+    # Deliberately NOT [self-hosted, macOS]: this needs no Xcode, and pinning a
+    # scheduled liveness check to a runner that can be offline or saturated turns
+    # runner availability into a false alarm about the session.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3.7" # keep in sync with .mise.toml
+          bundler-cache: true
+
+      - name: Fail early if the secret is unset
+        env:
+          FASTLANE_SESSION: ${{ secrets.FASTLANE_SESSION }}
+        run: |
+          set -eu
+          if [ -z "${FASTLANE_SESSION:-}" ]; then
+            echo "::error title=FASTLANE_SESSION is not set::The App Privacy label cannot be published without it."
+            echo ""
+            echo "The upload_privacy_details lane uses Apple ID session auth, not the ASC API key."
+            echo "Without this secret, upload_metadata skips the privacy label and only warns."
+            echo ""
+            echo "Fix: run  fastlane spaceauth -u {{TEMPLATE_APPLE_ID}}"
+            echo "     then store the printed value as the FASTLANE_SESSION repository secret."
+            exit 1
+          fi
+
+      # --check_session exits 0 for a valid session and 1 otherwise, without
+      # prompting — the only non-interactive way to validate one.
+      - name: Validate the session against Apple
+        env:
+          FASTLANE_SESSION: ${{ secrets.FASTLANE_SESSION }}
+          FASTLANE_USER: {{TEMPLATE_APPLE_ID}} # matches fastlane/Appfile
+        run: |
+          set -eu
+          if ! bundle exec fastlane spaceauth --check_session -u "$FASTLANE_USER"; then
+            echo "::error title=FASTLANE_SESSION is expired or invalid::Re-run fastlane spaceauth and update the secret."
+            echo ""
+            echo "Apple sessions last roughly a month. Until this is refreshed, the App"
+            echo "Privacy nutrition label will not be published by upload_metadata — and"
+            echo "that failure is non-fatal there, so nothing else will tell you."
+            exit 1
+          fi
+          echo "Session is valid."
