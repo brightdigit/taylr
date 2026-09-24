@@ -352,6 +352,13 @@ find "Packages/{{TEMPLATE_APP_NAME}}Server" -type f \( -name "*.swift" -o -name 
   substitute "$file"
 done
 
+# ── Substitute in UI Tests ────────────────────────────────────────────────────
+info "Replacing tokens in UI tests..."
+find UITests -type f -name "*.swift" 2>/dev/null | while read -r file; do
+  substitute "$file"
+done
+mv "UITests/{{TEMPLATE_APP_NAME}}UITests.swift" "UITests/${APP_NAME}UITests.swift"
+
 # ── Substitute in Template Documentation ──────────────────────────────────────
 info "Replacing tokens in template documentation..."
 substitute README.template.md

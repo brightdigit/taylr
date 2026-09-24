@@ -1,13 +1,17 @@
 coverage:
   status:
+    # Informational only: uploads stay for the PR comment/UI, but patch/project
+    # must not fail checks (incomplete mid-run uploads are pure noise).
     project:
       default:
         target: auto
         threshold: 1%
+        informational: true
     patch:
       default:
         target: auto
         threshold: 1%
+        informational: true
 
 flags:
   ubuntu:

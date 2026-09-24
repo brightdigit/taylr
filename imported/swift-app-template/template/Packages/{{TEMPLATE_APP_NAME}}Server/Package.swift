@@ -1,6 +1,15 @@
-// swift-tools-version: 6.2
+// swift-tools-version: 6.3
+//
+//  Package.swift
+//  {{TEMPLATE_APP_NAME}}
+//
+//  Copyright (c) {{TEMPLATE_YEAR}} {{TEMPLATE_ORG_NAME}}.
+//  All rights reserved.
+//
+
 import PackageDescription
 
+// swiftlint:disable:next explicit_acl explicit_top_level_acl no_global_declarations
 let package = Package(
   name: "{{TEMPLATE_APP_NAME}}Server",
   platforms: [.macOS(.v26)],

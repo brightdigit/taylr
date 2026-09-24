@@ -1,6 +1,6 @@
 # Makefile for {{TEMPLATE_APP_NAME}}
 
-.PHONY: help setup-app setup-groups setup-app-ids bundle-install certs certs-dev certs-appstore certs-all certs-regenerate certs-regenerate-dev certs-regenerate-appstore certs-nuke-dev add-dev-device test build lint clean generate generate-strict generate-no-lint beta release-build sync-build-number sync-app-store privacy-details sync-featuring-nomination prepare-iap-review-screenshots capture-ios capture-frame capture-all
+.PHONY: help setup-app setup-groups setup-app-ids bundle-install certs certs-dev certs-appstore certs-all certs-regenerate certs-regenerate-dev certs-regenerate-appstore certs-nuke-dev add-dev-device test build lint clean generate generate-strict generate-no-lint beta release-build sync-build-number sync-app-store privacy-details sync-featuring-nomination prepare-iap-review-screenshots icons capture-ios capture-frame capture-all
 
 # Default target
 help:
@@ -38,6 +38,7 @@ help:
 	@echo "  make privacy-details          - Upload App Privacy labels (needs Apple ID session / FASTLANE_SESSION)"
 	@echo "  make sync-featuring-nomination - Sync fastlane/nominations/*.yml to App Store Connect"
 	@echo "  make prepare-iap-review-screenshots - Flatten/resize IAP review screenshots for upload"
+	@echo "  make icons                   - Export app icon renditions, submission icon, favicons (Marketing/icons)"
 	@echo ""
 	@echo "Screenshots (iOS/tvOS/watchOS only):"
 	@echo "  make capture-ios              - Capture screenshots (fastlane/Snapfile)"
@@ -158,6 +159,10 @@ sync-featuring-nomination: bundle-install
 prepare-iap-review-screenshots:
 	./Scripts/prepare-iap-review-screenshots.sh
 
+icons:
+	@echo "🎨 Exporting app icons..."
+	./Scripts/generate-icons.sh
+
 # Screenshots (iOS/tvOS/watchOS only)
 capture-ios: generate bundle-install
 	@echo "📸 Capturing screenshots..."
@@ -178,8 +183,10 @@ clean:
 		echo "📦 Moving to trash..."; \
 		[ -d build/ ] && trash build/ || true; \
 		[ -d DerivedData/ ] && trash DerivedData/ || true; \
-		[ -d "Packages/{{TEMPLATE_APP_NAME}}Kit/.build" ] && trash "Packages/{{TEMPLATE_APP_NAME}}Kit/.build" || true; \
-		[ -d "Packages/{{TEMPLATE_APP_NAME}}Kit/.swiftpm" ] && trash "Packages/{{TEMPLATE_APP_NAME}}Kit/.swiftpm" || true; \
+		[ -d "Packages/{{TEMPLATE_PACKAGE_NAME}}/.build" ] && trash "Packages/{{TEMPLATE_PACKAGE_NAME}}/.build" || true; \
+		[ -d "Packages/{{TEMPLATE_PACKAGE_NAME}}/.swiftpm" ] && trash "Packages/{{TEMPLATE_PACKAGE_NAME}}/.swiftpm" || true; \
+		[ -d "Packages/{{TEMPLATE_APP_NAME}}App/.build" ] && trash "Packages/{{TEMPLATE_APP_NAME}}App/.build" || true; \
+		[ -d "Packages/{{TEMPLATE_APP_NAME}}App/.swiftpm" ] && trash "Packages/{{TEMPLATE_APP_NAME}}App/.swiftpm" || true; \
 		trash ~/Library/Developer/Xcode/DerivedData/{{TEMPLATE_APP_NAME}}-* 2>/dev/null || true; \
 		trash *.xcodeproj 2>/dev/null || true; \
 		trash *.xcworkspace 2>/dev/null || true; \
@@ -187,5 +194,6 @@ clean:
 		[ -f fastlane/report.xml ] && trash fastlane/report.xml || true; \
 		git ls-files --others --ignored --exclude-standard | grep -v -e '\.claude/settings\.local\.json' -e '\.env' | xargs -I {} trash {} 2>/dev/null || true; \
 	fi
-	git clean -xdf --exclude=.claude/settings.local.json --exclude=.env
+	# -ff also removes untracked nested git repositories (e.g. SwiftPM checkouts).
+	git clean -xdff --exclude=.claude/settings.local.json --exclude=.env
 	@echo "✅ Clean complete"
