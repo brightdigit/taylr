@@ -1,0 +1,50 @@
+{
+    "name": "Swift 6.4",
+    "image": "swift:6.4",
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "installZsh": "false",
+            "username": "vscode",
+            "upgradePackages": "false"
+        },
+        "ghcr.io/devcontainers/features/git:1": {
+            "version": "os-provided",
+            "ppa": "false"
+        }
+    },
+    // Host SSH keys are mounted read-only and copied in (dropping macOS-only
+    // ssh_config keys) so private SwiftPM dependencies resolve in the container.
+    "mounts": [
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/tmp/host-ssh,readonly,type=bind"
+    ],
+    "remoteEnv": {
+        "SSH_AUTH_SOCK": "${localEnv:SSH_AUTH_SOCK}"
+    },
+    "postCreateCommand": "mkdir -p /root/.ssh && cp -r /tmp/host-ssh/* /root/.ssh/ && if [ -f /root/.ssh/config ]; then sed -i '/UseKeychain/d; /AddKeysToAgent/d; /IdentityAgent/d' /root/.ssh/config; fi && chmod 700 /root/.ssh && chmod 600 /root/.ssh/* 2>/dev/null || true",
+    "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} || true",
+    // ptrace + unconfined seccomp let LLDB attach inside the container.
+    "runArgs": [
+        "--cap-add=SYS_PTRACE",
+        "--security-opt",
+        "seccomp=unconfined"
+    ],
+    // Configure tool-specific properties.
+    "customizations": {
+        // Configure properties specific to VS Code.
+        "vscode": {
+            // Set *default* container specific settings.json values on container create.
+            "settings": {
+                "lldb.library": "/usr/lib/liblldb.so"
+            },
+            // Add the IDs of extensions you want installed when the container is created.
+            "extensions": [
+                "sswg.swift-lang"
+            ]
+        }
+    },
+    // Use 'forwardPorts' to make a list of ports inside the container available locally.
+    // "forwardPorts": [],
+
+    // Set `remoteUser` to `root` to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+    "remoteUser": "root"
+}

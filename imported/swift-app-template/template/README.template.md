@@ -8,15 +8,15 @@ Built with [Swift App Template](https://github.com/brightdigit/Swift-App-Templat
 
 - **Tuist** for declarative Xcode project generation
 - **Two-package architecture** — `{{TEMPLATE_PACKAGE_NAME}}` (business logic) + `{{TEMPLATE_APP_NAME}}App` (SwiftUI)
-- **Swift 6.2** with strict concurrency checking
-- **Swift Testing** framework (no XCTest)
+- **Swift 6.3** language mode with strict concurrency checking (CI toolchains on Swift 6.4)
+- **Swift Testing** framework (XCTest only for UI/screenshot tests)
 - **Fastlane** for certificate management and TestFlight deployment
 - **Comprehensive CI/CD** across 7 platforms via GitHub Actions
 
 ## Requirements
 
 - **macOS** 14.0+ (Sonoma or later)
-- **Xcode** 16.0+ (Swift 6.2+)
+- **Xcode** 26.4+ (Swift 6.3+)
 - **mise** — Tool version manager ([installation](https://mise.jdx.dev/getting-started.html))
 - **Apple Developer Account** — For code signing and App Store deployment
 
@@ -34,7 +34,16 @@ This installs:
 - Tuist (project generator)
 - SwiftLint (linting)
 - swift-format (code formatting)
-- Ruby + Bundler (Fastlane dependencies)
+- Ruby (Fastlane runtime)
+- uv (Python runner for `make icons`)
+
+Then install fastlane:
+
+```bash
+bundle install
+```
+
+**Dev container:** `.devcontainer/devcontainer.json` (Swift 6.4) builds and tests the packages on Linux. Your `~/.ssh` is mounted read-only so private SwiftPM dependencies resolve.
 
 ### 2. Generate Xcode Project
 
@@ -134,13 +143,23 @@ The Kit package is **platform-agnostic** and tested on all platforms in CI. The 
 
 | Job | Platform | Description |
 |-----|----------|-------------|
-| `test-package-ubuntu` | Ubuntu 24.04 | Linux + WASM variants |
-| `test-package-windows` | Windows 2022/2025 | Windows compatibility |
-| `test-package-android` | Android API 33/34 | Android cross-compilation |
-| `test-package-macos` | macOS 15 | All Apple platforms (macOS/iOS/tvOS/watchOS simulators) |
-| `build-app` | macOS 15 | Tuist project generation + release build |
-| `lint` | Ubuntu 24.04 | SwiftLint + swift-format (strict mode) |
-| `fastlane` | macOS 15 | TestFlight upload (main branch only) |
+| `build-ubuntu` | `swift:6.4` (noble/jammy) | Linux + WASM variants |
+| `build-windows` | Windows 2025, Swift 6.4 | Windows compatibility (cross-platform PRs) |
+| `build-android` | Android API 34, Swift 6.4 | Android cross-compilation (cross-platform PRs) |
+| `build-macos` / `build-macos-platforms` | self-hosted macOS | SPM + Apple platform simulators |
+| `lint` | Ubuntu | SwiftLint + swift-format (strict mode) |
+| `fastlane` | self-hosted macOS | Release build; TestFlight upload + build-number commit on `main` |
+
+Draft pull requests skip the workflow until they're marked ready for review.
+
+### Other workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `app-store-metadata.yml` | manual | Sync App Store listing (metadata, screenshots, age rating, privacy label) without a build |
+| `asc-session.yml` | weekly | Fail loudly when `FASTLANE_SESSION` expires |
+| `cleanup-caches.yml` / `cleanup-pr-caches.yml` | branch delete / PR close | Delete stale Actions caches |
+| `claude.yml` / `claude-code-review.yml` | `@claude` / non-draft PRs | Claude Code assistance and review |
 
 ### CI Linting vs Local Linting
 
@@ -163,9 +182,10 @@ Configure these secrets in your repository settings for full CI/CD functionality
 | `CODECOV_TOKEN` | Code coverage reporting | [codecov.io](https://codecov.io) |
 | `MATCH_PASSWORD` | Decrypt Fastlane Match certificates | Choose a strong password |
 | `FASTLANE_KEYCHAIN_PASSWORD` | CI keychain password | Choose a strong password |
-| `APP_STORE_CONNECT_API_KEY_ID` | App Store Connect API | [Create API key](https://appstoreconnect.apple.com/access/api) |
-| `APP_STORE_CONNECT_API_ISSUER_ID` | App Store Connect API issuer | From API key creation page |
-| `APP_STORE_CONNECT_API_KEY_CONTENT` | App Store Connect API key file | Base64-encode your `.p8` file |
+| `APP_STORE_CONNECT_API_KEY_KEY_ID` | App Store Connect API | [Create API key](https://appstoreconnect.apple.com/access/api) |
+| `APP_STORE_CONNECT_API_KEY_ISSUER_ID` | App Store Connect API issuer | From API key creation page |
+| `APP_STORE_CONNECT_API_KEY_KEY` | App Store Connect API key file | Base64-encode your `.p8` file |
+| `FASTLANE_SESSION` | App Privacy label upload (Apple ID session — the API key can't do it) | `bundle exec fastlane spaceauth -u {{TEMPLATE_APPLE_ID}}`; renew ~monthly |
 | `TUIST_CONFIG_TOKEN` | Tuist Cloud token (optional) | [Tuist Cloud dashboard](https://cloud.tuist.io) |
 
 ### Base64-Encoding the API Key
@@ -174,7 +194,7 @@ Configure these secrets in your repository settings for full CI/CD functionality
 base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 ```
 
-Paste the clipboard contents into the `APP_STORE_CONNECT_API_KEY_CONTENT` secret.
+Paste the clipboard contents into the `APP_STORE_CONNECT_API_KEY_KEY` secret.
 
 ## App Store Deployment
 
@@ -207,10 +227,10 @@ bundle exec fastlane beta
 
 This will:
 1. Sync certificates via Fastlane Match
-2. Generate the Xcode project
-3. Build the release artifact ({{TEMPLATE_BUILD_ARTIFACT_EXT}})
-4. Upload to TestFlight
-5. Notify testers
+2. Build the release artifact ({{TEMPLATE_BUILD_ARTIFACT_EXT}})
+3. Upload to TestFlight with the notes in `fastlane/changelog.txt`
+
+Metadata is synced separately (`make sync-app-store` or the App Store Metadata workflow) so a locked App Store version can't fail a binary upload.
 
 ### Automatic Deployment
 
@@ -218,6 +238,12 @@ The `fastlane` job in `.github/workflows/app.yml` automatically deploys to TestF
 - The commit is on the `main` branch
 - All tests pass
 - All required secrets are configured
+
+After a successful upload, CI sets the build number to the latest TestFlight build + 1 and commits `Config/Version.xcconfig` back to `main` (`[ci skip]`).
+
+### Beta vs Production Builds
+
+Builds are betas while `Config/Version.xcconfig` contains a `BETA_BASE_BUILD` line (shown in-app as `1.0.0 beta N` via `VersionInfo.displayVersion`). To ship a production release, run the app workflow manually on `main` with **production_release** checked: CI drops the beta line, uploads, commits `chore: release build …`, then restores beta numbering for the next build.
 
 ## Configuration Summary
 

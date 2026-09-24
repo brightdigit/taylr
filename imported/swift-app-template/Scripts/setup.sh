@@ -363,6 +363,7 @@ mv "UITests/{{TEMPLATE_APP_NAME}}UITests.swift" "UITests/${APP_NAME}UITests.swif
 info "Replacing tokens in template documentation..."
 substitute README.template.md
 substitute CLAUDE.template.md
+substitute CHANGELOG.template.md
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Generate Swift Source Files
@@ -482,6 +483,7 @@ info "Finalizing documentation..."
 
 mv README.template.md README.md
 mv CLAUDE.template.md CLAUDE.md
+mv CHANGELOG.template.md CHANGELOG.md
 
 ok "Documentation finalized."
 
@@ -500,8 +502,10 @@ rm -rf SyntaxKit
 # Remove reference projects
 rm -rf _reference
 
-# Remove .claude directory (implementation plans)
+# Remove .claude directory (implementation plans), then promote the generated
+# project's agent files (.claude.template/) in its place
 rm -rf .claude
+mv .claude.template .claude
 
 # Remove template-only docs
 rm -rf docs
