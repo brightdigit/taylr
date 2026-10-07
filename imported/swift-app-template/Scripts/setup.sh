@@ -309,7 +309,10 @@ TARGET_FILES=(
   fastlane/.env.default
   fastlane/Fastfile
   fastlane/Matchfile
+  fastlane/Snapfile
   .github/app.workflow.yml
+  .github/app-store-metadata.workflow.yml
+  .github/asc-session.workflow.yml
 )
 
 info "Replacing tokens in target files..."
@@ -349,10 +352,18 @@ find "Packages/{{TEMPLATE_APP_NAME}}Server" -type f \( -name "*.swift" -o -name 
   substitute "$file"
 done
 
+# ── Substitute in UI Tests ────────────────────────────────────────────────────
+info "Replacing tokens in UI tests..."
+find UITests -type f -name "*.swift" 2>/dev/null | while read -r file; do
+  substitute "$file"
+done
+mv "UITests/{{TEMPLATE_APP_NAME}}UITests.swift" "UITests/${APP_NAME}UITests.swift"
+
 # ── Substitute in Template Documentation ──────────────────────────────────────
 info "Replacing tokens in template documentation..."
 substitute README.template.md
 substitute CLAUDE.template.md
+substitute CHANGELOG.template.md
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Generate Swift Source Files
@@ -407,12 +418,26 @@ if [[ -d "$OLD_KIT_SOURCES" ]]; then
   rm -rf "$OLD_KIT_SOURCES"
 fi
 
+# Same merge for tests: the template ships VersionInfoTests.swift in
+# Tests/{{TEMPLATE_APP_NAME}}KitTests/; TemplateGenerator writes Tests/${APP_NAME}KitTests/.
+OLD_KIT_TESTS="Packages/${TEMPLATE_TOKEN}Kit/Tests/${TEMPLATE_TOKEN}KitTests"
+NEW_KIT_TESTS="Packages/${TEMPLATE_TOKEN}Kit/Tests/${APP_NAME}KitTests"
+if [[ -d "$OLD_KIT_TESTS" ]]; then
+  mkdir -p "$NEW_KIT_TESTS"
+  if [[ -n "$(ls -A "$OLD_KIT_TESTS" 2>/dev/null)" ]]; then
+    mv "$OLD_KIT_TESTS"/* "$NEW_KIT_TESTS"/
+  fi
+  rm -rf "$OLD_KIT_TESTS"
+fi
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Activate app.yml Workflow
 # ══════════════════════════════════════════════════════════════════════════════
 
 info "Activating GitHub workflow..."
 mv .github/app.workflow.yml .github/workflows/app.yml
+mv .github/app-store-metadata.workflow.yml .github/workflows/app-store-metadata.yml
+mv .github/asc-session.workflow.yml .github/workflows/asc-session.yml
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Full-Stack: Keep or Remove Server Package
@@ -458,6 +483,7 @@ info "Finalizing documentation..."
 
 mv README.template.md README.md
 mv CLAUDE.template.md CLAUDE.md
+mv CHANGELOG.template.md CHANGELOG.md
 
 ok "Documentation finalized."
 
@@ -476,8 +502,10 @@ rm -rf SyntaxKit
 # Remove reference projects
 rm -rf _reference
 
-# Remove .claude directory (implementation plans)
+# Remove .claude directory (implementation plans), then promote the generated
+# project's agent files (.claude.template/) in its place
 rm -rf .claude
+mv .claude.template .claude
 
 # Remove template-only docs
 rm -rf docs

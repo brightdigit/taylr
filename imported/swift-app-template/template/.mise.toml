@@ -13,8 +13,9 @@ experimental = true
 
 # Linting (via core or aqua)
 swiftlint = "0.63.2"          # Swift style and conventions checking
-tuist = "4.145.0"             # Xcode project generator
+tuist = "4.198.3"             # Xcode project generator
 
-ruby = "3.3.7"                # Ruby runtime for fastlane
+ruby = "3.3.7"                # Ruby runtime for fastlane (keep asc-session workflow in sync)
+uv = "0.11.1"                 # Python runner for Scripts/generate-icons.sh
 # Optional: Uncomment to set defaults
 # DEVELOPER_DIR = "/Applications/Xcode.app"

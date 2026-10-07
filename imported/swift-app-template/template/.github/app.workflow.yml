@@ -13,6 +13,9 @@ name: {{TEMPLATE_APP_NAME}}
 #   - APP_STORE_CONNECT_API_KEY_KEY: App Store Connect API key content (base64 encoded)
 #   - APP_STORE_CONNECT_API_KEY_KEY_ID: App Store Connect API key ID
 #   - TUIST_CONFIG_TOKEN: Tuist Cloud token (optional)
+#   - MATCH_GIT_PRIVATE_KEY (optional): read-only deploy key for the certs repo,
+#     if match clones it over SSH. A deploy key is scoped to one repository, so
+#     use a separate key per private repo (see .github/actions/private-spm-dependency).
 #
 # Required GitHub Variables (set in Fastfile or as secrets):
 #   - APP_IDENTIFIER: Bundle identifier (e.g., {{TEMPLATE_BUNDLE_ID}})
@@ -34,10 +37,18 @@ on:
       - 'LICENSE'
       - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
+    inputs:
+      production_release:
+        description: "Drop the beta marker and ship this build as a production release (main only)"
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  # Never cancel a manual dispatch. A production release uploads to TestFlight and then
+  # records that fact in two commits; being cancelled in between would leave a released
+  # build with no trace in git. Pushes/PRs keep the cancel-on-supersede behaviour.
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 env:
   PACKAGE_NAME: {{TEMPLATE_APP_NAME}}Kit
@@ -46,6 +57,8 @@ jobs:
   configure:
     name: Configure Matrix
     runs-on: ubuntu-latest
+    # Draft PRs must not burn self-hosted macOS runners until they're ready for review.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     outputs:
       full-matrix: ${{ steps.check.outputs.full }}
       cross-platform: ${{ steps.check.outputs.cross_platform }}
@@ -85,11 +98,11 @@ jobs:
         run: |
           if [[ "${{ steps.check.outputs.full }}" == "true" ]]; then
             echo 'ubuntu-os=["noble","jammy"]' >> "$GITHUB_OUTPUT"
-            echo 'ubuntu-swift=[{"version":"6.3"}]' >> "$GITHUB_OUTPUT"
+            echo 'ubuntu-swift=[{"version":"6.4"}]' >> "$GITHUB_OUTPUT"
             echo 'ubuntu-type=["","wasm","wasm-embedded"]' >> "$GITHUB_OUTPUT"
           else
             echo 'ubuntu-os=["noble"]' >> "$GITHUB_OUTPUT"
-            echo 'ubuntu-swift=[{"version":"6.3"}]' >> "$GITHUB_OUTPUT"
+            echo 'ubuntu-swift=[{"version":"6.4"}]' >> "$GITHUB_OUTPUT"
             echo 'ubuntu-type=[""]' >> "$GITHUB_OUTPUT"
           fi
 
@@ -99,6 +112,8 @@ jobs:
     runs-on: ubuntu-latest
     container: swift:${{ matrix.swift.version }}-${{ matrix.os }}
     if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
+    # A healthy run takes ~5 minutes; without a cap, a resolver hang runs to the 6-hour default.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -107,7 +122,7 @@ jobs:
         type: ${{ fromJSON(needs.configure.outputs.ubuntu-type) }}
     steps:
       - uses: actions/checkout@v6
-      - uses: brightdigit/swift-build@v1.5.2
+      - uses: brightdigit/swift-build@v1.5.8
         id: build
         with:
           type: ${{ matrix.type }}
@@ -140,20 +155,21 @@ jobs:
     needs: configure
     runs-on: windows-2025
     if: ${{ needs.configure.outputs.cross-platform == 'true' && !contains(github.event.head_commit.message, 'ci skip') }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - uses: brightdigit/swift-build@v1.5.2
+      - uses: brightdigit/swift-build@v1.5.8
         id: build
         with:
           working-directory: Packages/${{ env.PACKAGE_NAME }}
-          windows-swift-version: swift-6.3-release
-          windows-swift-build: 6.3-RELEASE
+          windows-swift-version: swift-6.4.0-release
+          windows-swift-build: 6.4.0-RELEASE
       - name: Upload coverage to Codecov
         if: steps.build.outputs.contains-code-coverage == 'true'
         uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
-          flags: swift-6.3,windows
+          flags: swift-6.4,windows
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -163,6 +179,7 @@ jobs:
     needs: configure
     runs-on: ubuntu-latest
     if: ${{ needs.configure.outputs.cross-platform == 'true' && !contains(github.event.head_commit.message, 'ci skip') }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
       - name: Free disk space
@@ -175,13 +192,13 @@ jobs:
           large-packages: true
           docker-images: true
           swap-storage: true
-      - uses: brightdigit/swift-build@v1.5.2
+      - uses: brightdigit/swift-build@v1.5.8
         id: build
         with:
           working-directory: Packages/${{ env.PACKAGE_NAME }}
           scheme: ${{ env.PACKAGE_NAME }}
           type: android
-          android-swift-version: "6.3"
+          android-swift-version: "6.4.0"
           android-api-level: 34
           android-run-tests: true
       - name: Upload coverage to Codecov
@@ -189,7 +206,7 @@ jobs:
         uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
-          flags: android-api34-swift6.3
+          flags: android-api34-swift6.4
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -197,9 +214,12 @@ jobs:
   # setup.sh customizes these matrix entries based on {{TEMPLATE_DESTINATIONS}}
   build-macos:
     name: Build on macOS
+    # Depends on configure only so draft PRs (where configure is skipped) skip this too.
+    needs: configure
     runs-on: [self-hosted, macOS]
     if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           # SPM Build Matrix
@@ -227,7 +247,7 @@ jobs:
 #
       - name: Build and Test
         id: build
-        uses: brightdigit/swift-build@v1.5.2
+        uses: brightdigit/swift-build@v1.5.8
         with:
           working-directory: Packages/${{ matrix.package || env.PACKAGE_NAME }}
           scheme: ${{ matrix.package || env.PACKAGE_NAME }}-Package
@@ -261,6 +281,7 @@ jobs:
     runs-on: [self-hosted, macOS]
     if: ${{ needs.configure.outputs.full-matrix == 'true' && !contains(github.event.head_commit.message, 'ci skip') }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           # macOS Build Matrix
@@ -284,7 +305,7 @@ jobs:
 #
       - name: Build and Test
         id: build
-        uses: brightdigit/swift-build@v1.5.2
+        uses: brightdigit/swift-build@v1.5.8
         with:
           working-directory: Packages/${{ env.PACKAGE_NAME }}
           scheme: ${{ env.PACKAGE_NAME }}-Package
@@ -292,7 +313,6 @@ jobs:
           xcode: ${{ matrix.xcode }}
           deviceName: ${{ matrix.deviceName }}
           osVersion: ${{ matrix.osVersion }}
-          download-platform: ${{ matrix.download-platform }}
 #
       - name: Process Coverage
         if: steps.build.outputs.contains-code-coverage == 'true'
@@ -315,7 +335,8 @@ jobs:
   build-server-linux:
     name: Build Server Package (Linux)
     runs-on: ubuntu-latest
-    container: swift:6.2-noble
+    container: swift:6.4-noble
+    timeout-minutes: 30
     if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
     steps:
       - uses: actions/checkout@v6
@@ -351,7 +372,27 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          # Push events leave a detached HEAD unless `ref` is set; detached HEAD
+          # makes the later `git pull --rebase` / `git push` fail and drops the
+          # synced build-number commit. workflow_dispatch commits too, so it needs
+          # the branch as well.
+          #
+          # NOT on `pull_request`: there `github.ref_name` is `<pr>/merge`, which
+          # checkout resolves as `refs/heads/<pr>/merge` — no such branch exists, so
+          # the fetch fails. Empty means "use the default ref" (the merge commit).
+          # Every commit/push step below is gated on `refs/heads/main`.
+          ref: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref_name || '' }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Private SPM dependency over SSH? Uncomment and add the deploy key secret.
+      # Build Archive then needs SSH_AUTH_SOCK: "" and MATCH_GIT_PRIVATE_KEY so
+      # match authenticates with its own key (a deploy key covers one repo).
+      # See .github/actions/private-spm-dependency/action.yml.
+      # - uses: ./.github/actions/private-spm-dependency
+      #   with:
+      #     deploy-key: ${{ secrets.PRIVATE_PACKAGE_DEPLOY_KEY }}
+      #     resolve-for-xcode: "true"
+      #     package-path: Packages/{{TEMPLATE_PACKAGE_NAME}}
 
       - uses: jdx/mise-action@v4
         with:
@@ -381,6 +422,28 @@ jobs:
           gem install bundler
           bundle install
 
+      # Must run BEFORE tuist generate / build_app so the xcconfig is final by the time
+      # xcodebuild resolves $(BETA_BASE_BUILD) into the Info.plist. Captures the current
+      # base so the beta line can be restored afterwards (see "Resume Beta" below).
+      - name: Mark Production Release
+        id: beta
+        if: inputs.production_release && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          BASE=$(grep -E '^[[:space:]]*BETA_BASE_BUILD[[:space:]]*=' Config/Version.xcconfig \
+                 | head -n1 | cut -d= -f2 | tr -d '[:space:]')
+          if [ -z "$BASE" ]; then
+            echo "::error::No BETA_BASE_BUILD in Config/Version.xcconfig — main is already in release state. Nothing to promote."
+            exit 1
+          fi
+          if ! [[ "$BASE" =~ ^[0-9]+$ ]]; then
+            echo "::error::BETA_BASE_BUILD is not an integer: '$BASE'"
+            exit 1
+          fi
+          echo "beta_base=$BASE" >> "$GITHUB_OUTPUT"
+          ./Scripts/update-version.sh --release
+          echo "🚀 Beta marker dropped — this build ships as a production release."
+
       - name: Setup Xcode Project
         run: tuist generate
         env:
@@ -390,8 +453,8 @@ jobs:
 
       - name: Determine Build Action
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "📦 Production release: will build with IS_BETA=NO and upload to TestFlight"
+          if [ "${{ inputs.production_release }}" == "true" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "📦 Production release: beta marker dropped, will upload to TestFlight as a release build"
           elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "📦 Will upload to TestFlight (main branch detected)"
           else
@@ -407,29 +470,124 @@ jobs:
           APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
           APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
           DEVELOPER_DIR: /Applications/Xcode.app
-          FASTLANE_XCARGS: ${{ github.event_name == 'workflow_dispatch' && 'IS_BETA=NO' || '' }}
 
-      - name: Upload fastlane logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
+      - name: Read Version Info
+        id: version
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          MARKETING=$(grep MARKETING_VERSION Config/Version.xcconfig | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+          BUILD=$(grep CURRENT_PROJECT_VERSION Config/Version.xcconfig | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+          echo "marketing=$MARKETING" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v7
+        if: success() && github.ref == 'refs/heads/main'
         with:
-          name: fastlane-logs
-          path: fastlane/logs/
+          name: {{TEMPLATE_APP_NAME}}-${{ steps.version.outputs.marketing }}-${{ steps.version.outputs.build }}-${{ github.run_number }}
+          retention-days: 14
+          path: build/release/{{TEMPLATE_APP_NAME}}.{{TEMPLATE_BUILD_ARTIFACT_EXT}}
+
+      # gym writes the full xcodebuild log here; fastlane doesn't create fastlane/logs/.
+      - name: Upload Build Logs
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: fastlane-build-logs
           retention-days: 7
+          path: ~/Library/Logs/gym/*.log
 
       - name: Sync Build Number from TestFlight
-        if: github.ref == 'refs/heads/main'
+        # Only after a successful TestFlight upload. The bump computes
+        # testflight_build + 1, so running it on a failed/partial upload would
+        # desync the build number.
+        #
+        # Skipped for a production release: that flow owns the version file end to end
+        # (drop beta -> commit release -> restore beta -> increment) and running this
+        # too would double-bump and race its commits.
+        if: success() && github.ref == 'refs/heads/main' && inputs.production_release != true
         run: bundle exec fastlane sync_build_number
         env:
           APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
           APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
 
-      - name: Commit Production Release Version
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      # Persist the synced build number so the next build — and any version branch
+      # cut from main — starts from it instead of recomputing and conflicting on the
+      # next upload.
+      #
+      # Deliberately commits ONLY Config/Version.xcconfig: the runner is self-hosted
+      # and persistent, so its working tree may carry stray tuist output that
+      # `git add -A` would sweep in.
+      - name: Commit Synced Build Number
+        if: success() && github.ref == 'refs/heads/main' && inputs.production_release != true
         run: |
+          BUILD=$(grep CURRENT_PROJECT_VERSION Config/Version.xcconfig | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+
+          # A stale latest_testflight_build from the App Store Connect API would
+          # otherwise silently LOWER the build number and break the next upload.
+          PREVIOUS=$(git show HEAD:Config/Version.xcconfig | grep CURRENT_PROJECT_VERSION | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+          if [ -z "$PREVIOUS" ]; then
+            echo "::error::Could not read committed build number from HEAD:Config/Version.xcconfig."
+            exit 1
+          fi
+          if [ "$BUILD" -lt "$PREVIOUS" ]; then
+            echo "::error::Synced build number $BUILD is lower than committed $PREVIOUS — refusing to commit."
+            exit 1
+          fi
+
+          if git diff --quiet -- Config/Version.xcconfig; then
+            echo "Build number already at $BUILD — nothing to commit."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Config/Version.xcconfig
-          git commit -m "Mark production release build [ci skip]"
+          git commit -m "chore: sync build number to $BUILD [ci skip]"
+          # Cheap insurance against a push landing outside this workflow's
+          # concurrency group between checkout and here.
+          git pull --rebase
           git push
+
+      # ---- Production release bookkeeping (workflow_dispatch + production_release) ----
+      # Both steps are success()-gated, so a failed build or upload leaves the repo
+      # untouched — the dropped beta line only ever existed in the runner's working tree.
+
+      - name: Commit Production Release Build
+        if: success() && inputs.production_release && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          VERSION=$(grep MARKETING_VERSION Config/Version.xcconfig | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+          BUILD=$(grep CURRENT_PROJECT_VERSION Config/Version.xcconfig | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Config/Version.xcconfig
+          # Not pushed yet — the resume-beta commit below pushes both together.
+          git commit -m "chore: release build $VERSION ($BUILD) [ci skip]"
+          echo "✅ Recorded release build $VERSION ($BUILD)"
+
+      - name: Resume Beta And Increment Build
+        if: success() && inputs.production_release && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          # +1 absorbs the build number just consumed by the release, which never ships as
+          # a beta. Without it the sequence gains a permanent gap: base 0 with the release
+          # at build 8 would make build 9 read "beta 9", skipping beta 8 entirely.
+          NEXT_BASE=$(( ${{ steps.beta.outputs.beta_base }} + 1 ))
+          ./Scripts/update-version.sh --beta "$NEXT_BASE"
+          # --increment preserves the base just restored. Deliberately NOT
+          # sync_build_number: upload_to_testflight runs with
+          # skip_waiting_for_build_processing, so the API can still report the previous
+          # build right after upload and hand back a value equal to the release build.
+          ./Scripts/update-version.sh --increment
+
+          VERSION=$(grep MARKETING_VERSION Config/Version.xcconfig | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+          BUILD=$(grep CURRENT_PROJECT_VERSION Config/Version.xcconfig | awk -F' = ' '{print $2}' | tr -d '[:space:]')
+
+          git add Config/Version.xcconfig
+          git commit -m "chore: resume beta at build $BUILD (base $NEXT_BASE) [ci skip]"
+          git pull --rebase
+          git push
+          echo "✅ Next beta is $VERSION beta $(( BUILD - NEXT_BASE )) (build $BUILD, base $NEXT_BASE)"

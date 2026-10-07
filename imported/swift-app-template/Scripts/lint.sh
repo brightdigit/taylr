@@ -89,7 +89,7 @@ function lint_swift_package() {
 
 		# Update headers
 		echo "Updating headers in $package_path..."
-		run_command "$SCRIPT_DIR/header.sh" -d "$package_path" -c "{{TEMPLATE_ORG_NAME}}" -p "{{TEMPLATE_APP_NAME}}"
+		run_command "$SCRIPT_DIR/header.sh" -c "{{TEMPLATE_ORG_NAME}}" -p "{{TEMPLATE_APP_NAME}}" "$package_path/Sources" "$package_path/Tests"
 	fi
 
 	# Lint (always run)
@@ -126,7 +126,7 @@ function lint_tuist_files() {
 
             # Update headers for Project.swift
             echo "Updating headers in Project.swift..."
-            run_command "$SCRIPT_DIR/header.sh" -d "$project_root" -c "{{TEMPLATE_ORG_NAME}}" -p "{{TEMPLATE_APP_NAME}}"
+            run_command "$SCRIPT_DIR/header.sh" -c "{{TEMPLATE_ORG_NAME}}" -p "{{TEMPLATE_APP_NAME}}" "$project_root/Project.swift"
         fi
         # Lint (always run)
         run_command run_tool swiftlint "$project_root/Project.swift" --strict --config "$config_path"
@@ -142,7 +142,7 @@ function lint_tuist_files() {
 
             # Update headers for Tuist directory
             echo "Updating headers in Tuist directory..."
-            run_command "$SCRIPT_DIR/header.sh" -d "$project_root/Tuist" -c "{{TEMPLATE_ORG_NAME}}" -p "{{TEMPLATE_APP_NAME}}"
+            run_command "$SCRIPT_DIR/header.sh" -c "{{TEMPLATE_ORG_NAME}}" -p "{{TEMPLATE_APP_NAME}}" "$project_root/Tuist"
         fi
         # Lint (always run)
         run_command run_tool swiftlint "$project_root/Tuist" --strict --config "$config_path"

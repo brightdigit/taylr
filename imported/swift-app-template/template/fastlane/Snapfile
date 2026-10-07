@@ -1,0 +1,30 @@
+# Snapfile — screenshot capture defaults for `make capture-ios` (fastlane capture_ios)
+#
+# `snapshot` runs a UI test target that calls `snapshot("01_Name")` at each
+# screen you want captured. Add one (e.g. {{TEMPLATE_APP_NAME}}UITests with
+# fastlane's SnapshotHelper.swift), then set `scheme` below to a scheme that
+# runs it.
+#
+# Device names must match an installed simulator runtime
+# (`xcrun simctl list devicetypes`). The App Store display class follows the
+# native pixel size, and `capture_frame` needs frameit frame art for each device
+# (`~/.fastlane/frameit`), so bump names only together with frames that exist.
+
+workspace("{{TEMPLATE_APP_NAME}}.xcworkspace")
+scheme("{{TEMPLATE_APP_NAME}}")
+output_directory("fastlane/screenshots")
+
+devices([
+  "iPhone 17 Pro Max",
+  "iPhone 17 Pro",
+])
+
+# One entry per fastlane/metadata locale you ship.
+languages(["en-US"])
+
+clear_previous_screenshots(true)
+stop_after_first_error(false)
+number_of_retries(3)
+skip_open_summary(true)
+
+xcargs("-skipPackagePluginValidation")

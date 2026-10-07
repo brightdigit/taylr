@@ -1,4 +1,4 @@
-// swift-tools-version: 6.2
+// swift-tools-version: 6.3
 //
 //  Package.swift
 //  {{TEMPLATE_APP_NAME}}
@@ -9,9 +9,10 @@
 
 import PackageDescription
 
-// swiftlint:disable:next explicit_acl explicit_top_level_acl
+// swiftlint:disable:next explicit_acl explicit_top_level_acl no_global_declarations
 let package = Package(
   name: "{{TEMPLATE_APP_NAME}}Kit",
+  defaultLocalization: "en",
   // Non-full-stack (default): Kit and App targets are merged in this single package.
   // Full-stack mode: setup.sh splits App into a separate Packages/{{TEMPLATE_APP_NAME}}App package.
   platforms: [

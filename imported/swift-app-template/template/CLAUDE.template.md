@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Memory & Corrections Convention
+
+**Source of truth for how to work in this repo:** [`.claude/agent-notes.md`](./.claude/agent-notes.md).
+
+- **Read it first** at the start of every session, before doing other work.
+- It is an append-only running log of user corrections and standing always/never directives.
+- When the user corrects you or gives an always/never instruction, append one line to that file proactively (do not wait to be asked). Newest at the bottom; one line per entry. If a new directive supersedes an older one, rewrite the old line **in place** with a `(SUPERSEDED …)`/`(REVISED …)` prefix — never delete it — and run `Scripts/check-agent-notes.sh` before pushing.
+- The file merges with `merge=union` (see `.gitattributes`), but rebases don't apply merge drivers — `Scripts/check-agent-notes.sh` catches entries a rebase silently dropped.
+
 ## What This Repo Is
 
 This is **{{TEMPLATE_APP_NAME}}**, a Swift application built for Apple platforms using the [Swift App Template](https://github.com/brightdigit/Swift-App-Template) infrastructure.
@@ -14,6 +23,15 @@ This is **{{TEMPLATE_APP_NAME}}**, a Swift application built for Apple platforms
 > 3. `Packages/{{TEMPLATE_APP_NAME}}App/Sources/{{TEMPLATE_APP_NAME}}App/Views/PrimaryView.swift` — replace placeholder UI
 > 4. `fastlane/metadata/en-US/name.txt` — your app's display name
 > 5. `Resources/AppIcon.icon/` — replace with your real app icon
+
+## Initial Setup
+
+1. `mise install` — install pinned tools (tuist, swiftlint, swift-format, ruby, uv)
+2. `bundle install` — install fastlane
+3. `make generate` — generate the Xcode project
+4. `open {{TEMPLATE_APP_NAME}}.xcworkspace`
+
+A dev container (`.devcontainer/`, Swift 6.4) is available for Linux builds of the packages.
 
 ## Project Configuration
 
@@ -56,7 +74,8 @@ Packages/
 
 - **Tuist** manages Xcode project generation (`Project.swift`). Never edit `.xcodeproj` directly — it's generated and not committed to version control.
 - **Two packages**: `{{TEMPLATE_PACKAGE_NAME}}` (pure Swift, cross-platform) and `{{TEMPLATE_APP_NAME}}App` (SwiftUI, Apple platforms only). Tests live in `{{TEMPLATE_PACKAGE_NAME}}`.
-- **Swift 6.2** with `SWIFT_STRICT_CONCURRENCY = complete` — all concurrency violations are compiler errors.
+- **Swift 6.3 language mode** (`SWIFT_VERSION`, swift-tools-version 6.3) with `SWIFT_STRICT_CONCURRENCY = complete` — all concurrency violations are compiler errors. Linux/Windows/Android CI builds with the Swift 6.4 toolchain.
+- **Build settings live in `Tuist/ProjectDescriptionHelpers/`** — `AppConstants` (bundle ID, team, app group, category), `SettingsDictionary+App` (base settings), `Configuration+App` (signing per configuration, `Config/App.xcconfig`).
 - **Manual code signing** via Fastlane Match — certificates stored in `{{TEMPLATE_CERTS_REPO}}`.
 - **`mise`** manages tool versions (tuist, swiftlint, swift-format, ruby, etc.) — see `.mise.toml`.
 
@@ -78,6 +97,11 @@ make lint
 
 # Test the Kit package (primary test target)
 swift test --package-path Packages/{{TEMPLATE_PACKAGE_NAME}}
+make test                      # same tests through fastlane (Xcode, TEST_DESTINATION)
+make build                     # debug build of the app
+
+# App icons (Marketing/icons: renditions, submission icon, favicons)
+make icons
 
 # Certificate management
 make certs                     # sync all certificates (dev + App Store)
@@ -89,14 +113,43 @@ make certs-regenerate-appstore # force regenerate App Store profiles
 
 # App Store submission
 make beta                       # build and upload to TestFlight
-make screenshots-all            # capture and frame App Store screenshots (iOS/tvOS/watchOS only)
-fastlane upload_privacy_details # upload App Privacy nutrition labels
-fastlane sync_last_release      # record live App Store build (run after release)
+make capture-all                # capture and frame App Store screenshots (iOS/tvOS/watchOS only)
+make sync-app-store             # upload metadata/screenshots/age rating without a binary
+make privacy-details            # upload App Privacy labels (needs FASTLANE_SESSION in CI)
+make sync-featuring-nomination  # push fastlane/nominations/*.yml to App Store Connect
+make add-dev-device UDID=... NAME=...  # register a device + refresh dev profiles
 ```
+
+### Versioning
+
+`Config/Version.xcconfig` is written only by `Scripts/update-version.sh`. A `BETA_BASE_BUILD`
+line marks a beta build (displayed as `X.Y.Z beta N`, where N = build − base); removing it marks
+a production release. CI manages this automatically — see the `production_release` input on the
+app workflow.
+
+```bash
+./Scripts/update-version.sh 1.2.0      # set marketing version (build → 1), keeps beta state
+./Scripts/update-version.sh --increment # bump build number, keeps beta state
+./Scripts/update-version.sh --beta 12   # mark as beta counting from build 12
+./Scripts/update-version.sh --release   # drop the beta line (production)
+fastlane sync_build_number              # set build to latest TestFlight build + 1
+```
+
+### Release notes
+
+- `CHANGELOG.md` — one `##` section per release with themed `###` groups and a `### What to test` list.
+- `fastlane/changelog.txt` — TestFlight "What to Test" notes for the next build; the `beta` lane fails if it's missing. Update it before merging to `main`.
+- `fastlane/metadata/en-US/release_notes.txt` — App Store "What's New" text.
+
+### Localization
+
+- Never re-serialize a whole `Localizable.xcstrings` file with a script (e.g. `json.dumps`) — it rewrites every entry. Edit only the keys you change.
+- After an Xcode session, check the catalog for empty `{}` stubs Xcode re-extracted.
+- When resources, AppIntents or string catalogs change, build with both SwiftPM (`swift test`) and Xcode (`make test`) — they produce different resource artifacts.
 
 ## Swift Testing Conventions
 
-All test code uses **Swift Testing only** (no XCTest).
+All test code uses **Swift Testing only** (no XCTest). The one exception is `UITests/` — XCUITest (used for fastlane snapshot screenshots) requires XCTest.
 
 ### Suite Structure
 
@@ -282,15 +335,22 @@ private extension ContentView {
 
 ## CI/CD Overview
 
-`.github/workflows/app.yml` runs on every push and pull request:
+`.github/workflows/app.yml` runs on every push and non-draft pull request:
 
-1. **test-package-ubuntu** — Linux (Ubuntu, Swift 6.2), including WASM variants
-2. **test-package-windows** — Windows 2022/2025
-3. **test-package-android** — Android API 33/34
-4. **test-package-macos** — macOS/iOS/tvOS/watchOS simulators
-5. **build-app** — Tuist project generation + release build (depends on all test jobs)
-6. **lint** — SwiftLint + swift-format strict mode
-7. **fastlane** — TestFlight upload (main branch only, requires secrets)
+1. **build-ubuntu** — Linux (Swift 6.4), including WASM variants on the full matrix
+2. **build-windows** / **build-android** — cross-platform PRs and full-matrix branches
+3. **build-macos** / **build-macos-platforms** — SPM + Apple platform simulators
+4. **lint** — SwiftLint + swift-format strict mode
+5. **fastlane** — release build; on `main`, TestFlight upload, then the synced build number is committed back (`[ci skip]`)
+
+Dispatch the workflow on `main` with **production_release** checked to ship a build as a production release: CI drops the `BETA_BASE_BUILD` line, uploads, commits the release build, then resumes beta numbering.
+
+Other workflows:
+
+- **app-store-metadata.yml** (manual) — `fastlane upload_metadata` without a build
+- **asc-session.yml** (weekly) — fails when `FASTLANE_SESSION` expires
+- **cleanup-caches.yml** / **cleanup-pr-caches.yml** — delete Actions caches for deleted branches and closed PRs
+- **claude.yml** / **claude-code-review.yml** — Claude Code on `@claude` mentions and non-draft PRs
 
 ### Linting Modes
 
@@ -311,9 +371,10 @@ Configure these in repository settings:
 - `CODECOV_TOKEN` — Code coverage reporting
 - `MATCH_PASSWORD` — Decrypt Fastlane Match certificates
 - `FASTLANE_KEYCHAIN_PASSWORD` — CI keychain password
-- `APP_STORE_CONNECT_API_KEY_ID` — App Store Connect API key ID
-- `APP_STORE_CONNECT_API_ISSUER_ID` — App Store Connect API issuer ID
-- `APP_STORE_CONNECT_API_KEY_CONTENT` — App Store Connect API key (base64-encoded `.p8` file)
+- `APP_STORE_CONNECT_API_KEY_KEY_ID` — App Store Connect API key ID
+- `APP_STORE_CONNECT_API_KEY_ISSUER_ID` — App Store Connect API issuer ID
+- `APP_STORE_CONNECT_API_KEY_KEY` — App Store Connect API key (base64-encoded `.p8` file)
+- `FASTLANE_SESSION` — Apple ID session for the App Privacy label upload (`fastlane spaceauth -u {{TEMPLATE_APPLE_ID}}`, ~monthly)
 - `TUIST_CONFIG_TOKEN` — Tuist Cloud token (optional)
 
 ## Tuist Notes
@@ -333,7 +394,7 @@ Configure these in repository settings:
 
 ### Modifying Build Settings
 
-1. Edit `Project.swift` (search for `Settings.settings`)
+1. Edit `Tuist/ProjectDescriptionHelpers/SettingsDictionary+App.swift` (shared base settings) or `Project.swift` (per target)
 2. Regenerate: `make generate`
 3. Verify in Xcode
 
@@ -352,6 +413,7 @@ Tools managed:
 - **swiftlint** — Linting
 - **swift-format** — Code formatting
 - **ruby** — Fastlane runtime
+- **uv** — Python runner for `Scripts/generate-icons.sh`
 
 Never install these tools globally — always use `mise exec` or the Makefile targets.
 

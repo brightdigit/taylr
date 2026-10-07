@@ -40,7 +40,7 @@ opt_in_rules:
   - legacy_random
   - literal_expression_end_indentation
   - lower_acl_than_parent
-  - missing_docs
+  # - missing_docs  # Disabled during early implementation
   - modifier_order
   - multiline_arguments_brackets
   - multiline_function_chains
@@ -86,6 +86,21 @@ opt_in_rules:
   - vertical_whitespace_opening_braces
   - xct_specific_matcher
   - yoda_condition
+custom_rules:
+  no_global_declarations:
+    name: "No Global Declarations"
+    message: "Declare this inside a type (enum/struct namespace or extension) — globals \
+      bypass access-control scoping and can't be discovered from the type they relate to."
+    regex: '^(public |package |internal |private |fileprivate )?(func|let|var)\s+[a-zA-Z_]'
+    # NOTE: deliberately no `match_kinds:` — on SwiftLint 0.63.2 it silently suppresses
+    # every match here (verified against all of [keyword], [identifier], and both),
+    # because the matched range spans several syntax kinds and the filter requires all
+    # of them to be listed. The `^`-anchored regex is precise enough without it: type
+    # members are always indented under `indentation_width: 2`.
+    #
+    # SwiftPM/Tuist manifests require a top-level `let package`/`let project` and carry
+    # an inline `swiftlint:disable:next no_global_declarations`.
+    severity: error
 cyclomatic_complexity:
   - 6
   - 8
@@ -110,7 +125,9 @@ excluded:
   - DerivedData
   - .build
   - .swiftpm
-  - "*/.swiftpm"   
+  - "*/.swiftpm"
+  # Vendored fastlane snapshot helper — kept verbatim, exempt from lint.
+  - "UITests/SnapshotHelper.swift"
   - "*/.build"
 indentation_width:
   indentation_width: 2
@@ -120,7 +137,7 @@ fatal_error_message:
     severity: error
 disabled_rules:
   - trailing_comma
-  - strict_fileprivate    
+  - strict_fileprivate
   - nesting
   - implicit_getter
   - switch_case_alignment
@@ -128,3 +145,4 @@ disabled_rules:
   - opening_brace
   - optional_data_string_conversion
   - todo
+  - missing_docs  # Re-enable when API stabilizes
