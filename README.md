@@ -1,3 +1,5 @@
+<img src=".github/assets/taylr-logo.svg" width="180" height="180" alt="taylr logo: a swift cut from pattern pieces">
+
 # taylr
 
 [![SwiftPM](https://img.shields.io/badge/SPM-macOS%20%7C%20Linux-success?logo=swift)](https://swift.org)
@@ -54,7 +56,7 @@ The root package holds the CLI. Every other package lives under `Packages/` as a
 ## Requirements
 
 - Swift 6.4; the toolchain is pinned in `.swift-version`
-- macOS 26 to run taylr; the root package and every package also build and test on Linux
+- macOS to run taylr; the root package and every package also build and test on Linux
 - [mise](https://mise.jdx.dev) for the pinned swift-format and SwiftLint
 
 ## Development
@@ -73,8 +75,10 @@ Agents and contributors: read [AGENTS.md](AGENTS.md) first for the package bound
 ## Documentation
 
 - [taylr.sh](https://taylr.sh): user documentation, the authority for behavior
+- [brightdigit/taylr.sh](https://github.com/brightdigit/taylr.sh): the website's source; open documentation issues there
 - [.claude/SPEC.md](.claude/SPEC.md): the 1.0 specification
 - [.claude/PLAN.md](.claude/PLAN.md): the implementation plan, phase by phase
+- [Milestones](https://github.com/brightdigit/taylr/milestones): one per plan phase, with one issue per pull request
 
 ## License
 

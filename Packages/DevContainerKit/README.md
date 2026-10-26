@@ -12,7 +12,7 @@
 ## Requirements
 
 - Swift 6.4 (pinned in `.swift-version`)
-- macOS 26 or Linux
+- macOS or Linux
 
 ## Development
 
