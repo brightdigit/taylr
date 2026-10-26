@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = https://github.com/brightdigit/ConfigKeyKit
+	branch = main
+	commit = 3c8ae3825b4cdcbf60fb1adeaaaf324557e7fd41
+	parent = 0b5f4bbc11c5a1c2840551c244820105f8921585
+	method = merge
+	cmdver = 0.4.9
