@@ -1,0 +1,87 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The root package plus every package that builds without ScriptingBridge.
+  # XcodePilot is macOS-only and runs in build-macos instead.
+  build-ubuntu:
+    name: Build on Ubuntu (${{ matrix.package }}, Swift ${{ matrix.swift }})
+    runs-on: ubuntu-24.04
+    container: swift:${{ matrix.swift }}-noble
+    if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 6.2 is the oldest Swift the swift-tools-version allows; 6.4 is the
+        # toolchain pinned in .mise.toml.
+        swift: ["6.2", "6.4"]
+        package:
+          - "."
+          - Packages/ScaffoldKit
+          - Packages/GitHubActionsKit
+          - Packages/LintKit
+          - Packages/MiseKit
+          - Packages/DevContainerKit
+    steps:
+      - uses: actions/checkout@v6
+      - uses: brightdigit/swift-build@v1
+        with:
+          working-directory: ${{ matrix.package }}
+
+  build-macos:
+    name: Build on macOS (${{ matrix.package }})
+    runs-on: macos-26
+    if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - "."
+          - Packages/XcodePilot
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build and Test
+        uses: brightdigit/swift-build@v1
+        with:
+          working-directory: ${{ matrix.package }}
+
+  lint:
+    name: Linting
+    runs-on: ubuntu-24.04
+    container: swift:6.4-noble
+    if: ${{ !cancelled() && !failure() && !contains(github.event.head_commit.message, 'ci skip') }}
+    needs: [build-ubuntu, build-macos]
+    env:
+      # The container provides the Swift toolchain that .mise.toml pins
+      # locally; mise installs only swift-format and SwiftLint here.
+      MISE_DISABLE_TOOLS: swift
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-tools
+      - name: Lint
+        run: |
+          set -e
+          for package in . Packages/ScaffoldKit Packages/GitHubActionsKit Packages/LintKit \
+            Packages/MiseKit Packages/DevContainerKit Packages/XcodePilot; do
+            echo "::group::Lint $package"
+            (cd "$package" && ./Scripts/lint.sh)
+            echo "::endgroup::"
+          done
