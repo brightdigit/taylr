@@ -54,7 +54,13 @@ fi
 
 # SwiftLint is required everywhere except Claude Code web sessions, where it
 # runs only if it was installed by hand. swift-format ships with the toolchain.
-if command -v swiftlint >/dev/null 2>&1; then
+# The release's swiftlint-static runs on any Linux; the dynamic swiftlint needs
+# libxml2.so.2, which Ubuntu 26.04 no longer ships.
+SWIFTLINT=swiftlint
+if command -v swiftlint-static >/dev/null 2>&1; then
+	SWIFTLINT=swiftlint-static
+fi
+if command -v "$SWIFTLINT" >/dev/null 2>&1; then
 	RUN_SWIFTLINT=1
 elif [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
 	RUN_SWIFTLINT=0
@@ -74,14 +80,14 @@ if [ -z "$CI" ]; then
 	run_command ./Scripts/header.sh -d Sources -c "Leo Dion" -o "BrightDigit" -p "$PACKAGE_NAME"
 	run_command swift-format format $SWIFTFORMAT_FORMAT_OPTIONS --recursive --parallel --in-place Sources Tests
 	if [ "$RUN_SWIFTLINT" -eq 1 ]; then
-		run_command swiftlint --fix --quiet
+		run_command "$SWIFTLINT" --fix --quiet
 	fi
 fi
 
 if [ -z "$FORMAT_ONLY" ]; then
 	run_command swift-format lint --recursive --parallel $SWIFTFORMAT_LINT_OPTIONS Sources Tests
 	if [ "$RUN_SWIFTLINT" -eq 1 ]; then
-		run_command swiftlint lint $SWIFTLINT_OPTIONS
+		run_command "$SWIFTLINT" lint $SWIFTLINT_OPTIONS
 	fi
 fi
 

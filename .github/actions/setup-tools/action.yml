@@ -13,9 +13,9 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/.local/share/mise/installs
-        key: mise-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.mise.toml') }}
+        key: mise-v3-swift-6.4-resolute-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.mise.toml') }}
         restore-keys: |
-          mise-v2-${{ runner.os }}-${{ runner.arch }}-
+          mise-v3-swift-6.4-resolute-${{ runner.os }}-${{ runner.arch }}-
     - name: Install mise tools (cache miss)
       if: steps.mise-cache.outputs.cache-hit != 'true'
       uses: jdx/mise-action@v4
