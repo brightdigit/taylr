@@ -34,7 +34,7 @@ Run destinations come from `xcodebuild -showdestinations`, run with [swift-subpr
 
 ## Requirements
 
-- macOS 26 with Xcode installed; the first call asks for permission to control Xcode (Automation in System Settings › Privacy & Security)
+- macOS with Xcode installed; the first call asks for permission to control Xcode (Automation in System Settings › Privacy & Security)
 - Swift 6.4 (pinned in `.swift-version`)
 
 ScriptingBridge exists only on macOS. On other platforms the Xcode-driving types compile out (`#if canImport(ScriptingBridge)`), which leaves the destination parser, so the package builds everywhere and its parser tests run on Linux too. taylr's CI builds and tests it on macOS and Linux.

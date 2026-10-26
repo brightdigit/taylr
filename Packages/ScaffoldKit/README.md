@@ -12,7 +12,7 @@ Writes a complete taylr app or package from a resolved `ProjectConfig`: SyntaxKi
 ## Requirements
 
 - Swift 6.4 (pinned in `.swift-version`)
-- macOS 26 or Linux
+- macOS or Linux
 
 ## Dependencies
 

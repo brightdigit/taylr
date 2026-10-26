@@ -56,7 +56,7 @@ The root package holds the CLI. Every other package lives under `Packages/` as a
 ## Requirements
 
 - Swift 6.4; the toolchain is pinned in `.swift-version`
-- macOS 26 to run taylr; the root package and every package also build and test on Linux
+- macOS to run taylr; the root package and every package also build and test on Linux
 - [mise](https://mise.jdx.dev) for the pinned swift-format and SwiftLint
 
 ## Development
