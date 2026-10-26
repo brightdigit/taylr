@@ -6,7 +6,7 @@
 [subrepo]
 	remote = https://github.com/brightdigit/ConfigKeyKit
 	branch = taylr
-	commit = d94ed1bdb1000a1312ab0af4563e65e0a4065893
-	parent = 91b5ee1d0dff560b9769d86037610a804a63a773
+	commit = 849d799f324b3fa0e0ac51d9adf3ae119e4e7fab
+	parent = 31d8bc8edd1c2f3288bd691d2016a7757beb98eb
 	method = merge
 	cmdver = 0.4.9
