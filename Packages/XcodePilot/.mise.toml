@@ -2,6 +2,5 @@
 experimental = true
 
 [tools]
-swift = "6.4.1"
 "spm:swiftlang/swift-format" = "604.0.0"
 "aqua:realm/SwiftLint" = "0.62.2"

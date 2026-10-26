@@ -1,7 +1,7 @@
 # MiseKit
 
 [![SwiftPM](https://img.shields.io/badge/SPM-macOS%20%7C%20Linux-success?logo=swift)](https://swift.org)
-[![Swift](https://img.shields.io/badge/swift-6.2%2B-orange?logo=swift)](https://swift.org)
+[![Swift](https://img.shields.io/badge/swift-6.4-orange?logo=swift)](https://swift.org)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 `Codable` models of `.mise.toml` (tools, tasks, env and settings) with a minimal TOML encoder.
@@ -11,7 +11,7 @@
 
 ## Requirements
 
-- Swift 6.2 or later (the toolchain is pinned in `.mise.toml`)
+- Swift 6.4 (pinned in `.swift-version`)
 - macOS 26 or Linux
 
 ## Development

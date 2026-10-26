@@ -1,7 +1,7 @@
 # XcodePilot
 
-[![SwiftPM](https://img.shields.io/badge/SPM-macOS-success?logo=swift)](https://swift.org)
-[![Swift](https://img.shields.io/badge/swift-6.2%2B-orange?logo=swift)](https://swift.org)
+[![SwiftPM](https://img.shields.io/badge/SPM-macOS%20%7C%20Linux-success?logo=swift)](https://swift.org)
+[![Swift](https://img.shields.io/badge/swift-6.4-orange?logo=swift)](https://swift.org)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Drives a running Xcode from Swift through Xcode's AppleScript scripting dictionary: open a workspace, wait for a scheme to load, resolve a run destination, then build, debug or test.
@@ -35,9 +35,9 @@ Run destinations come from `xcodebuild -showdestinations`, run with [swift-subpr
 ## Requirements
 
 - macOS 26 with Xcode installed; the first call asks for permission to control Xcode (Automation in System Settings › Privacy & Security)
-- Swift 6.2 or later (the toolchain is pinned in `.mise.toml`)
+- Swift 6.4 (pinned in `.swift-version`)
 
-ScriptingBridge exists only on macOS. On other platforms the Xcode-driving types compile out (`#if canImport(ScriptingBridge)`), which leaves the destination parser, so the package still builds and its parser tests still run on Linux. taylr's CI builds and tests it on macOS only.
+ScriptingBridge exists only on macOS. On other platforms the Xcode-driving types compile out (`#if canImport(ScriptingBridge)`), which leaves the destination parser, so the package builds everywhere and its parser tests run on Linux too. taylr's CI builds and tests it on macOS and Linux.
 
 ## Development
 

@@ -20,19 +20,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The root package plus every package that builds without ScriptingBridge.
-  # XcodePilot is macOS-only and runs in build-macos instead.
+  # Every package builds and tests on its own, on Linux and on macOS.
   build-ubuntu:
-    name: Build on Ubuntu (${{ matrix.package }}, Swift ${{ matrix.swift }})
-    runs-on: ubuntu-24.04
-    container: swift:${{ matrix.swift }}-noble
+    name: Build on Ubuntu (${{ matrix.package }})
+    runs-on: ubuntu-26.04
+    container: swift:6.4-resolute
     if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
     strategy:
       fail-fast: false
       matrix:
-        # 6.2 is the oldest Swift the swift-tools-version allows; 6.4 is the
-        # toolchain pinned in .mise.toml.
-        swift: ["6.2", "6.4"]
         package:
           - "."
           - Packages/ScaffoldKit
@@ -40,6 +36,7 @@ jobs:
           - Packages/LintKit
           - Packages/MiseKit
           - Packages/DevContainerKit
+          - Packages/XcodePilot
     steps:
       - uses: actions/checkout@v6
       - uses: brightdigit/swift-build@v1
@@ -51,13 +48,19 @@ jobs:
 
   build-macos:
     name: Build on macOS (${{ matrix.package }})
-    runs-on: macos-26
+    # Xcode 27 ships Swift 6.4; macos-26 tops out at Xcode 26 (Swift 6.3).
+    runs-on: xcode-27
     if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
     strategy:
       fail-fast: false
       matrix:
         package:
           - "."
+          - Packages/ScaffoldKit
+          - Packages/GitHubActionsKit
+          - Packages/LintKit
+          - Packages/MiseKit
+          - Packages/DevContainerKit
           - Packages/XcodePilot
     steps:
       - uses: actions/checkout@v6
@@ -71,14 +74,10 @@ jobs:
 
   lint:
     name: Linting
-    runs-on: ubuntu-24.04
-    container: swift:6.4-noble
+    runs-on: ubuntu-26.04
+    container: swift:6.4-resolute
     if: ${{ !cancelled() && !failure() && !contains(github.event.head_commit.message, 'ci skip') }}
     needs: [build-ubuntu, build-macos]
-    env:
-      # The container provides the Swift toolchain that .mise.toml pins
-      # locally; mise installs only swift-format and SwiftLint here.
-      MISE_DISABLE_TOOLS: swift
     steps:
       - uses: actions/checkout@v6
       # The swift image has no curl, which mise-action needs to fetch mise;

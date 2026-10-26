@@ -4,21 +4,21 @@ Guidance for AI coding agents (Claude Code, Codex, Cursor, Xcode) working in thi
 
 ## Project overview
 
-taylr is a Swift CLI that creates a complete, ready-to-ship Swift app or Swift package from a few answers, then runs its everyday build, test, lint, sign and release commands. The published docs at [taylr.sh](https://taylr.sh) ([brightdigit/taylr.sh](https://github.com/brightdigit/taylr.sh/tree/main/src/content/docs/docs)) are the authority for user-facing behavior. The specification (`SPEC.md`) and the implementation plan (`PLAN.md`) order the work; when they disagree with the docs, the docs win and the disagreement is reported, not resolved.
+taylr is a Swift CLI that creates a complete, ready-to-ship Swift app or Swift package from a few answers, then runs its everyday build, test, lint, sign and release commands. The published docs at [taylr.sh](https://taylr.sh) ([brightdigit/taylr.sh](https://github.com/brightdigit/taylr.sh/tree/main/src/content/docs/docs)) are the authority for user-facing behavior. The specification (`SPEC.md`) and the implementation plan (`.claude/PLAN.md`) order the work; when they disagree with the docs, the docs win and the disagreement is reported, not resolved.
 
 ## Package map
 
 | Package | Location | Depends on | Holds |
 | --- | --- | --- | --- |
 | `TaylrDescription` | root target | nothing (Foundation only) | `App`, `Package`, `Packages`, `Profile`, `CI`, `License` and the rest of the manifest API, all `Codable`. The only module `Manifest.swift` imports. Published to `/api` with DocC. |
-| `TaylrKit` | root target | TaylrDescription, ScaffoldKit, GitHubActionsKit, LintKit, MiseKit, DevContainerKit, XcodePilot (macOS) | Profiles and `config.yml`, defaults resolution, manifest loading (compile + run + decode, cached), the `validate` rules, Keychain, and the `gh`, `tuist`, `fastlane`, `mise` and `git` wrappers. No terminal UI. |
+| `TaylrKit` | root target | TaylrDescription, ScaffoldKit, GitHubActionsKit, LintKit, MiseKit, DevContainerKit, XcodePilot | Profiles and `config.yml`, defaults resolution, manifest loading (compile + run + decode, cached), the `validate` rules, Keychain, and the `gh`, `tuist`, `fastlane`, `mise` and `git` wrappers. No terminal UI. |
 | `taylr` | root executable | TaylrKit | The three command groups (`profile`, `project`, `package`), prompts, output and `--json`. Thin. |
 | `ScaffoldKit` | `Packages/ScaffoldKit` | SyntaxKit, the model packages | `ProjectConfig`, the SyntaxKit generators, the fixed resources, and one `Scaffold.write(config, to:)` entry point. Does not know about TaylrDescription. |
 | `GitHubActionsKit` | `Packages/GitHubActionsKit` | (Yams, later) | Workflow, jobs, steps, triggers, matrix, runners. |
 | `LintKit` | `Packages/LintKit` | (Yams, Subprocess, later) | The shared lint-tool protocol, with one product per tool: `SwiftLintKit`, `SwiftFormatKit`, `HeaderKit`. |
 | `MiseKit` | `Packages/MiseKit` | a minimal TOML encoder | `.mise.toml` tools, tasks and env. |
 | `DevContainerKit` | `Packages/DevContainerKit` | Foundation | `devcontainer.json`. |
-| `XcodePilot` | `Packages/XcodePilot` | ScriptingBridge, swift-subprocess | Xcode's scripting dictionary as `@objc` Swift protocols. macOS only; copied from Swoop. |
+| `XcodePilot` | `Packages/XcodePilot` | ScriptingBridge, swift-subprocess | Xcode's scripting dictionary as `@objc` Swift protocols, compiled out where ScriptingBridge is missing; copied from Swoop. |
 | `SyntaxKit` | `Packages/SyntaxKit` | swift-syntax | Vendored with `git subrepo` from brightdigit/SyntaxKit, branch `taylr`. |
 
 Right now every package holds only a placeholder: Phase 0 of the plan is the repository skeleton.
@@ -46,7 +46,7 @@ Right now every package holds only a placeholder: Phase 0 of the plan is the rep
 Every package, and the root, has the same `make` targets:
 
 ```bash
-mise install   # once: the pinned Swift toolchain, swift-format and SwiftLint
+mise install   # once: the pinned swift-format and SwiftLint (Swift itself is pinned in .swift-version)
 make build     # swift build
 make test      # swift test
 make lint      # header, swift-format and SwiftLint fixes, then a strict lint

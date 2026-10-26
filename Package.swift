@@ -1,4 +1,4 @@
-// swift-tools-version: 6.2
+// swift-tools-version: 6.4
 
 // swiftlint:disable explicit_acl explicit_top_level_acl
 
@@ -42,12 +42,7 @@ let package = Package(
         .product(name: "LintKit", package: "LintKit"),
         .product(name: "MiseKit", package: "MiseKit"),
         .product(name: "DevContainerKit", package: "DevContainerKit"),
-        // ScriptingBridge is macOS-only.
-        .product(
-          name: "XcodePilot",
-          package: "XcodePilot",
-          condition: .when(platforms: [.macOS])
-        ),
+        .product(name: "XcodePilot", package: "XcodePilot"),
       ],
       swiftSettings: swiftSettings
     ),
