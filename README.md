@@ -73,8 +73,10 @@ Agents and contributors: read [AGENTS.md](AGENTS.md) first for the package bound
 ## Documentation
 
 - [taylr.sh](https://taylr.sh): user documentation, the authority for behavior
+- [brightdigit/taylr.sh](https://github.com/brightdigit/taylr.sh): the website's source; open documentation issues there
 - [.claude/SPEC.md](.claude/SPEC.md): the 1.0 specification
 - [.claude/PLAN.md](.claude/PLAN.md): the implementation plan, phase by phase
+- [Milestones](https://github.com/brightdigit/taylr/milestones): one per plan phase, with one issue per pull request
 
 ## License
 

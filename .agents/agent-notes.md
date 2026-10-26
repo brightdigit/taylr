@@ -12,3 +12,4 @@ How to use this file:
 ## Directives
 
 - Always expose `TaylrKit` as a library product of the root package, next to `TaylrDescription` (not only as an internal target).
+- Each GitHub issue must be small enough for one PR. A plan step too big for one PR becomes a parent issue with sub-issues; one milestone per plan phase (2026-10-26).
