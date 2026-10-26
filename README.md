@@ -1,3 +1,7 @@
+<p align="center">
+  <img src=".github/assets/taylr-logo.svg" width="128" height="128" alt="taylr logo: a swift cut from pattern pieces">
+</p>
+
 # taylr
 
 [![SwiftPM](https://img.shields.io/badge/SPM-macOS%20%7C%20Linux-success?logo=swift)](https://swift.org)
