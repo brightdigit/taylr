@@ -1,6 +1,6 @@
 {
     "name": "Swift",
-    "image": "swift:6.0",
+    "image": "swift:6.4",
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
             "installZsh": "false",
@@ -28,7 +28,7 @@
             },
             // Add the IDs of extensions you want installed when the container is created.
             "extensions": [
-                "swiftlang.swift-vscode"
+               "swiftlang.swift-vscode"
             ]
         }
     },
