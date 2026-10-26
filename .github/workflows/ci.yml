@@ -45,6 +45,9 @@ jobs:
       - uses: brightdigit/swift-build@v1
         with:
           working-directory: ${{ matrix.package }}
+          # Only the root commits Package.resolved; the library packages
+          # ignore theirs, so they resolve dependencies fresh.
+          skip-package-resolved: ${{ matrix.package != '.' }}
 
   build-macos:
     name: Build on macOS (${{ matrix.package }})
@@ -62,6 +65,9 @@ jobs:
         uses: brightdigit/swift-build@v1
         with:
           working-directory: ${{ matrix.package }}
+          # Only the root commits Package.resolved; the library packages
+          # ignore theirs, so they resolve dependencies fresh.
+          skip-package-resolved: ${{ matrix.package != '.' }}
 
   lint:
     name: Linting
