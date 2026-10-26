@@ -81,6 +81,12 @@ jobs:
       MISE_DISABLE_TOOLS: swift
     steps:
       - uses: actions/checkout@v6
+      # The swift image has no curl, which mise-action needs to fetch mise;
+      # SwiftLint's release is a zip.
+      - name: Install mise prerequisites
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends curl ca-certificates unzip
       - uses: ./.github/actions/setup-tools
       - name: Lint
         run: |
