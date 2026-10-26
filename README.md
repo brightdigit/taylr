@@ -1,4 +1,4 @@
-<img src=".github/assets/taylr-logo.svg" width="180" height="180" align="left" alt="taylr logo: a swift cut from pattern pieces">
+<img src=".github/assets/taylr-logo.svg" width="180" height="180" alt="taylr logo: a swift cut from pattern pieces">
 
 # taylr
 
@@ -8,8 +8,6 @@
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/brightdigit/taylr/ci.yml?label=actions&logo=github&branch=main)](https://github.com/brightdigit/taylr/actions)
 
 A Swift CLI that creates a complete, ready-to-ship Swift app or Swift package from a few answers, then runs its everyday build, test, lint, sign and release commands.
-
-<br clear="left">
 
 > [!WARNING]
 > taylr is in development. This repository holds the skeleton (Phase 0 of [the implementation plan](.claude/PLAN.md)); the commands documented at [taylr.sh](https://taylr.sh) do not exist yet.
