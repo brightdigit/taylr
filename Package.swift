@@ -26,6 +26,12 @@ let package = Package(
     .package(path: "Packages/MiseKit"),
     .package(path: "Packages/DevContainerKit"),
     .package(path: "Packages/XcodePilot"),
+    .package(url: "https://github.com/jpsim/Yams.git", from: "6.2.0"),
+    // Kept within SyntaxKit's 0.x range so both resolve together in taylr.
+    .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "0.4.0"),
+    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.0"),
+    // Pinned exactly, as the spec asks for the prompt library.
+    .package(url: "https://github.com/tuist/Noora.git", exact: "0.57.6"),
   ],
   targets: [
     // The only module Manifest.swift imports: Foundation only, no dependencies.
@@ -43,12 +49,18 @@ let package = Package(
         .product(name: "MiseKit", package: "MiseKit"),
         .product(name: "DevContainerKit", package: "DevContainerKit"),
         .product(name: "XcodePilot", package: "XcodePilot"),
+        .product(name: "Yams", package: "Yams"),
+        .product(name: "Subprocess", package: "swift-subprocess"),
       ],
       swiftSettings: swiftSettings
     ),
     .executableTarget(
       name: "taylr",
-      dependencies: ["TaylrKit"],
+      dependencies: [
+        "TaylrKit",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        .product(name: "Noora", package: "Noora"),
+      ],
       swiftSettings: swiftSettings
     ),
     .testTarget(

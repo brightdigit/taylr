@@ -37,6 +37,7 @@ jobs:
           - Packages/MiseKit
           - Packages/DevContainerKit
           - Packages/XcodePilot
+          - Packages/SyntaxKit
     steps:
       - uses: actions/checkout@v6
       - uses: brightdigit/swift-build@v1
@@ -62,6 +63,7 @@ jobs:
           - Packages/MiseKit
           - Packages/DevContainerKit
           - Packages/XcodePilot
+          - Packages/SyntaxKit
     steps:
       - uses: actions/checkout@v6
       - name: Build and Test

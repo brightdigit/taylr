@@ -16,9 +16,15 @@ let package = Package(
   products: [
     .library(name: "GitHubActionsKit", targets: ["GitHubActionsKit"])
   ],
+  dependencies: [
+    .package(url: "https://github.com/jpsim/Yams.git", from: "6.2.0")
+  ],
   targets: [
     .target(
       name: "GitHubActionsKit",
+      dependencies: [
+        .product(name: "Yams", package: "Yams")
+      ],
       swiftSettings: swiftSettings
     ),
     .testTarget(

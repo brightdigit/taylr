@@ -8,14 +8,26 @@ description: >-
 runs:
   using: composite
   steps:
+    # Tools built from source (spm:) only run on the OS release and Swift
+    # toolchain that built them, so both are part of the cache key.
+    - name: Identify OS release
+      id: os
+      shell: bash
+      run: |
+        if [ -f /etc/os-release ]; then
+          . /etc/os-release
+          echo "release=${ID}-${VERSION_ID}" >> "$GITHUB_OUTPUT"
+        else
+          echo "release=macos-$(sw_vers -productVersion)" >> "$GITHUB_OUTPUT"
+        fi
     - name: Cache mise tools
       id: mise-cache
       uses: actions/cache@v4
       with:
         path: ~/.local/share/mise/installs
-        key: mise-v3-swift-6.4-resolute-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.mise.toml') }}
+        key: mise-${{ steps.os.outputs.release }}-${{ runner.arch }}-${{ hashFiles('.mise.toml', '.swift-version') }}
         restore-keys: |
-          mise-v3-swift-6.4-resolute-${{ runner.os }}-${{ runner.arch }}-
+          mise-${{ steps.os.outputs.release }}-${{ runner.arch }}-
     - name: Install mise tools (cache miss)
       if: steps.mise-cache.outputs.cache-hit != 'true'
       uses: jdx/mise-action@v4
