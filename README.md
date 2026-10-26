@@ -29,7 +29,7 @@ taylr has three command groups:
 | `taylr project` | One app (a Tuist project) | Create, generate, build, test, lint, clean, register, certs, add-device, beta, metadata, privacy, screenshots, validate |
 | `taylr package` | One Swift package | Create, build, test, lint, clean, validate |
 
-Every project records its answers in a compiler-checked `Manifest.swift` (module `TaylrDescription`), and `validate` checks that the manifest and the generated files still agree. See [SPEC.md](SPEC.md) for the full specification.
+Every project records its answers in a compiler-checked `Manifest.swift` (module `TaylrDescription`), and `validate` checks that the manifest and the generated files still agree. See [.claude/SPEC.md](.claude/SPEC.md) for the full specification.
 
 ## Repository layout
 
@@ -72,7 +72,7 @@ Agents and contributors: read [AGENTS.md](AGENTS.md) first for the package bound
 ## Documentation
 
 - [taylr.sh](https://taylr.sh): user documentation, the authority for behavior
-- [SPEC.md](SPEC.md): the 1.0 specification
+- [.claude/SPEC.md](.claude/SPEC.md): the 1.0 specification
 - [.claude/PLAN.md](.claude/PLAN.md): the implementation plan, phase by phase
 
 ## License

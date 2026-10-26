@@ -4,7 +4,7 @@ Guidance for AI coding agents (Claude Code, Codex, Cursor, Xcode) working in thi
 
 ## Project overview
 
-taylr is a Swift CLI that creates a complete, ready-to-ship Swift app or Swift package from a few answers, then runs its everyday build, test, lint, sign and release commands. The published docs at [taylr.sh](https://taylr.sh) ([brightdigit/taylr.sh](https://github.com/brightdigit/taylr.sh/tree/main/src/content/docs/docs)) are the authority for user-facing behavior. The specification (`SPEC.md`) and the implementation plan (`.claude/PLAN.md`) order the work; when they disagree with the docs, the docs win and the disagreement is reported, not resolved.
+taylr is a Swift CLI that creates a complete, ready-to-ship Swift app or Swift package from a few answers, then runs its everyday build, test, lint, sign and release commands. The published docs at [taylr.sh](https://taylr.sh) ([brightdigit/taylr.sh](https://github.com/brightdigit/taylr.sh/tree/main/src/content/docs/docs)) are the authority for user-facing behavior. The specification (`.claude/SPEC.md`) and the implementation plan (`.claude/PLAN.md`) order the work; when they disagree with the docs, the docs win and the disagreement is reported, not resolved.
 
 ## Package map
 
