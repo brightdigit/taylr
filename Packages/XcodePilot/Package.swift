@@ -1,59 +1,47 @@
-// swift-tools-version: 6.0
-// The swift-tools-version declares the minimum version of Swift required to build this package.
+// swift-tools-version: 6.2
+
+// swiftlint:disable explicit_acl explicit_top_level_acl
 
 import PackageDescription
 
-
 let swiftSettings: [SwiftSetting] = [
-  SwiftSetting.enableExperimentalFeature("AccessLevelOnImport"),
-  SwiftSetting.enableExperimentalFeature("BitwiseCopyable"),
-  SwiftSetting.enableExperimentalFeature("GlobalActorIsolatedTypesUsability"),
-  SwiftSetting.enableExperimentalFeature("IsolatedAny"),
-  SwiftSetting.enableExperimentalFeature("MoveOnlyPartialConsumption"),
-  SwiftSetting.enableExperimentalFeature("NestedProtocols"),
-  SwiftSetting.enableExperimentalFeature("NoncopyableGenerics"),
-  SwiftSetting.enableExperimentalFeature("RegionBasedIsolation"),
-  SwiftSetting.enableExperimentalFeature("TransferringArgsAndResults"),
-  SwiftSetting.enableExperimentalFeature("VariadicGenerics"),
-  
-  SwiftSetting.enableUpcomingFeature("FullTypedThrows"),
-  SwiftSetting.enableUpcomingFeature("InternalImportsByDefault"),
-  
-  SwiftSetting.unsafeFlags([
-    "-Xfrontend",
-    "-warn-long-function-bodies=100"
-  ]),
-  SwiftSetting.unsafeFlags([
-    "-Xfrontend",
-    "-warn-long-expression-type-checking=100"
-  ])
+  .enableUpcomingFeature("InternalImportsByDefault")
 ]
 
 let package = Package(
   name: "XcodePilot",
-  platforms: [.macOS(.v13)],
+  platforms: [
+    .macOS(.v26)
+  ],
   products: [
-    .library(
-      name: "XcodePilot",
-      targets: ["XcodePilot"])
+    .library(name: "XcodePilot", targets: ["XcodePilot"])
   ],
   dependencies: [
-    .package(path: "../ProcessExtensions")
+    // Kept within SyntaxKit's 0.x range so both resolve together in taylr.
+    .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "0.4.0")
   ],
   targets: [
-    // Targets are the basic building blocks of a package, defining a module or a test suite.
-    // Targets can depend on other targets in this package and products from dependencies.
-    
     .target(
       name: "XcodeScriptingBridge",
       swiftSettings: swiftSettings
-      
     ),
-    
-      .target(
-        name: "XcodePilot",
-        dependencies: ["XcodeScriptingBridge", "ProcessExtensions"],
-        swiftSettings: swiftSettings
-      ),
+    .target(
+      name: "XcodePilot",
+      dependencies: [
+        "XcodeScriptingBridge",
+        .product(name: "Subprocess", package: "swift-subprocess"),
+      ],
+      swiftSettings: swiftSettings
+    ),
+    .testTarget(
+      name: "XcodePilotTests",
+      dependencies: ["XcodePilot"],
+      resources: [
+        .copy("Fixtures")
+      ],
+      swiftSettings: swiftSettings
+    ),
   ]
 )
+
+// swiftlint:enable explicit_acl explicit_top_level_acl

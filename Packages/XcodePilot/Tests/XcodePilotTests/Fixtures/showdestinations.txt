@@ -1,0 +1,14 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project Acme.xcodeproj -scheme Acme -showdestinations
+
+
+
+	Available destinations for the "Acme" scheme:
+		{ platform:macOS, arch:arm64, id:00006000-000A1B2C3D4E5F60, name:My Mac }
+		{ platform:macOS, arch:arm64, variant:Designed for [iPad,iPhone], id:00006000-000A1B2C3D4E5F60, name:My Mac }
+		{ platform:iOS Simulator, arch:arm64, id:6F1D2E3C-4B5A-4978-8695-A4B3C2D1E0F9, OS:26.0, name:iPhone 17 Pro }
+		{ platform:iOS Simulator, arch:x86_64, id:6F1D2E3C-4B5A-4978-8695-A4B3C2D1E0F9, OS:26.0, name:iPhone 17 Pro }
+		{ platform:iOS Simulator, arch:arm64, id:0A9B8C7D-6E5F-4A3B-9C2D-1E0F9A8B7C6D, OS:27.0, name:iPhone 17 Pro }
+
+	Ineligible destinations for the "Acme" scheme:
+		{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device, error:iOS 26.0 is not installed. To use with Xcode, first download and install the platform }
