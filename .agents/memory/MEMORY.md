@@ -12,3 +12,4 @@ This directory replaces any native or global memory feature for this project (Cl
 
 ## Memories
 
+- [MiseKit TOML decision](misekit-toml-decision.md) — tabled: how MiseKit decodes TOML; ask before step 2.2 round-trip work
