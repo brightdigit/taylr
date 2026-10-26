@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:SyntaxKit}",
+            "name": "Debug skit",
+            "preLaunchTask": "swift: Build Debug skit",
+            "target": "skit",
+            "configuration": "debug"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:SyntaxKit}",
+            "name": "Release skit",
+            "preLaunchTask": "swift: Build Release skit",
+            "target": "skit",
+            "configuration": "release"
+        }
+    ]
+}
