@@ -6,7 +6,7 @@
 [subrepo]
 	remote = https://github.com/brightdigit/SyntaxKit
 	branch = taylr
-	commit = 46bd7ec95eeb39e373c4f260bf278e2fe1742e64
-	parent = 418eb5b3d9e5aa4b81c6ec97bfaf6b9e8cca890d
+	commit = 470ea4f94a92bd709a6b78100e6ac0599fd07550
+	parent = 6199a5198579da37bdab5292adcf9d9d9c226359
 	method = merge
 	cmdver = 0.4.9
