@@ -4,7 +4,7 @@ Guidance for AI coding agents (Claude Code, Codex, Cursor, Xcode) working in thi
 
 ## Project overview
 
-taylr is a Swift CLI that creates a complete, ready-to-ship Swift app or Swift package from a few answers, then runs its everyday build, test, lint, sign and release commands. The published docs at [taylr.sh](https://taylr.sh) ([brightdigit/taylr.sh](https://github.com/brightdigit/taylr.sh/tree/main/src/content/docs/docs)) are the authority for user-facing behavior. The specification (`.claude/SPEC.md`) and the implementation plan (`.claude/PLAN.md`) order the work; when they disagree with the docs, the docs win and the disagreement is reported, not resolved.
+taylr is a Swift CLI that creates a complete, ready-to-ship Swift app or Swift package from a few answers, then runs its everyday build, test, lint, sign and release commands. The published docs at [taylr.sh](https://taylr.sh) ([brightdigit/taylr.sh](https://github.com/brightdigit/taylr.sh/tree/main/src/content/docs/docs)) are the authority for user-facing behavior. The specification (`.agents/SPEC.md`) and the implementation plan (`.agents/PLAN.md`) order the work; when they disagree with the docs, the docs win and the disagreement is reported, not resolved.
 
 ## Package map
 
@@ -88,3 +88,12 @@ make lint      # header, swift-format and SwiftLint fixes, then a strict lint
 - `InternalImportsByDefault` is enabled; write `public import` only when a public declaration needs the module.
 - Every Swift file under `Sources/` starts with the MIT header that `Scripts/header.sh` writes; `make lint` adds or refreshes it.
 - macOS-only code sits behind `#if canImport(<Framework>)` or `#if os(macOS)` so the Linux CI job still builds the root.
+
+## Memory & Corrections Convention
+
+Two committed files are the source of truth for how to work in this repository:
+
+- `.agents/agent-notes.md` (also `.claude/agent-notes.md`): an append-only log of the maintainer's corrections and always/never directives.
+- `.agents/memory/MEMORY.md` (also `.claude/memory/MEMORY.md`): the index of the project's memory files, one file per project-scoped fact.
+
+Read both before doing any work. Append corrections to the notes and memories to `.agents/memory/` proactively, without being asked. Never store project-scoped memories in a native or global memory system (such as Claude Code's `~/.claude/projects/.../memory/` or Cursor memories) instead of the repository.
