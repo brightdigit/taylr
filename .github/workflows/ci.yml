@@ -1,0 +1,102 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Every package builds and tests on its own, on Linux and on macOS.
+  build-ubuntu:
+    name: Build on Ubuntu (${{ matrix.package }})
+    runs-on: ubuntu-26.04
+    container: swift:6.4-resolute
+    if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - "."
+          - Packages/ScaffoldKit
+          - Packages/GitHubActionsKit
+          - Packages/LintKit
+          - Packages/MiseKit
+          - Packages/DevContainerKit
+          - Packages/XcodePilot
+          - Packages/SyntaxKit
+          - Packages/ConfigKeyKit
+    steps:
+      - uses: actions/checkout@v6
+      - uses: brightdigit/swift-build@v1
+        with:
+          working-directory: ${{ matrix.package }}
+          # Only the root commits Package.resolved; the library packages
+          # ignore theirs, so they resolve dependencies fresh.
+          skip-package-resolved: ${{ matrix.package != '.' }}
+
+  build-macos:
+    name: Build on macOS (${{ matrix.package }})
+    # Xcode 27 ships Swift 6.4; macos-26 tops out at Xcode 26 (Swift 6.3).
+    runs-on: xcode-27
+    if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - "."
+          - Packages/ScaffoldKit
+          - Packages/GitHubActionsKit
+          - Packages/LintKit
+          - Packages/MiseKit
+          - Packages/DevContainerKit
+          - Packages/XcodePilot
+          - Packages/SyntaxKit
+          - Packages/ConfigKeyKit
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build and Test
+        uses: brightdigit/swift-build@v1
+        with:
+          working-directory: ${{ matrix.package }}
+          # Only the root commits Package.resolved; the library packages
+          # ignore theirs, so they resolve dependencies fresh.
+          skip-package-resolved: ${{ matrix.package != '.' }}
+
+  lint:
+    name: Linting
+    runs-on: ubuntu-26.04
+    container: swift:6.4-resolute
+    if: ${{ !cancelled() && !failure() && !contains(github.event.head_commit.message, 'ci skip') }}
+    needs: [build-ubuntu, build-macos]
+    steps:
+      - uses: actions/checkout@v6
+      # The swift image has no curl, which mise-action needs to fetch mise;
+      # SwiftLint's release is a zip.
+      - name: Install mise prerequisites
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends curl ca-certificates unzip
+      - uses: ./.github/actions/setup-tools
+      - name: Lint
+        run: |
+          set -e
+          for package in . Packages/ScaffoldKit Packages/GitHubActionsKit Packages/LintKit \
+            Packages/MiseKit Packages/DevContainerKit Packages/XcodePilot; do
+            echo "::group::Lint $package"
+            (cd "$package" && ./Scripts/lint.sh)
+            echo "::endgroup::"
+          done
