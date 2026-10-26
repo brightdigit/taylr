@@ -47,8 +47,9 @@ The root package holds the CLI. Every other package lives under `Packages/` as a
 | [`DevContainerKit`](Packages/DevContainerKit) | `devcontainer.json` models |
 | [`XcodePilot`](Packages/XcodePilot) | Drives Xcode through its scripting dictionary (macOS) |
 | [`SyntaxKit`](Packages/SyntaxKit) | Swift code generation; vendored from [brightdigit/SyntaxKit](https://github.com/brightdigit/SyntaxKit) with `git subrepo` |
+| [`ConfigKeyKit`](Packages/ConfigKeyKit) | Commands and typed config keys over swift-configuration; vendored from [brightdigit/ConfigKeyKit](https://github.com/brightdigit/ConfigKeyKit) with `git subrepo` |
 
-`Packages/SyntaxKit` tracks SyntaxKit's `taylr` branch. Never edit it by hand: send changes upstream with `git subrepo push Packages/SyntaxKit` and bring them back with `git subrepo pull Packages/SyntaxKit` ([git-subrepo](https://github.com/ingydotnet/git-subrepo)).
+`Packages/SyntaxKit` and `Packages/ConfigKeyKit` each track their repository's `taylr` branch. Never edit them by hand: send changes upstream with `git subrepo push Packages/<Name>` and bring them back with `git subrepo pull Packages/<Name>` ([git-subrepo](https://github.com/ingydotnet/git-subrepo)).
 
 ## Requirements
 

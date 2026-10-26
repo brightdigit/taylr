@@ -38,6 +38,7 @@ jobs:
           - Packages/DevContainerKit
           - Packages/XcodePilot
           - Packages/SyntaxKit
+          - Packages/ConfigKeyKit
     steps:
       - uses: actions/checkout@v6
       - uses: brightdigit/swift-build@v1
@@ -64,6 +65,7 @@ jobs:
           - Packages/DevContainerKit
           - Packages/XcodePilot
           - Packages/SyntaxKit
+          - Packages/ConfigKeyKit
     steps:
       - uses: actions/checkout@v6
       - name: Build and Test

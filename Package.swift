@@ -26,10 +26,16 @@ let package = Package(
     .package(path: "Packages/MiseKit"),
     .package(path: "Packages/DevContainerKit"),
     .package(path: "Packages/XcodePilot"),
+    // Vendored with git subrepo from brightdigit/ConfigKeyKit (main); extend it there.
+    .package(path: "Packages/ConfigKeyKit"),
     .package(url: "https://github.com/jpsim/Yams.git", from: "6.2.0"),
     // Kept within SyntaxKit's 0.x range so both resolve together in taylr.
     .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "0.4.0"),
-    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.0"),
+    .package(
+      url: "https://github.com/apple/swift-configuration.git",
+      from: "1.3.0",
+      traits: ["JSON", "CommandLineArguments", "YAML"]
+    ),
     // Pinned exactly, as the spec asks for the prompt library.
     .package(url: "https://github.com/tuist/Noora.git", exact: "0.57.6"),
   ],
@@ -51,6 +57,8 @@ let package = Package(
         .product(name: "XcodePilot", package: "XcodePilot"),
         .product(name: "Yams", package: "Yams"),
         .product(name: "Subprocess", package: "swift-subprocess"),
+        .product(name: "Configuration", package: "swift-configuration"),
+        .product(name: "ConfigKeyKit", package: "ConfigKeyKit"),
       ],
       swiftSettings: swiftSettings
     ),
@@ -58,7 +66,8 @@ let package = Package(
       name: "taylr",
       dependencies: [
         "TaylrKit",
-        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        .product(name: "Configuration", package: "swift-configuration"),
+        .product(name: "ConfigKeyKit", package: "ConfigKeyKit"),
         .product(name: "Noora", package: "Noora"),
       ],
       swiftSettings: swiftSettings

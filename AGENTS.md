@@ -11,8 +11,8 @@ taylr is a Swift CLI that creates a complete, ready-to-ship Swift app or Swift p
 | Package | Location | Depends on | Holds |
 | --- | --- | --- | --- |
 | `TaylrDescription` | root target | nothing (Foundation only) | `App`, `Package`, `Packages`, `Profile`, `CI`, `License` and the rest of the manifest API, all `Codable`. The only module `Manifest.swift` imports. Published to `/api` with DocC. |
-| `TaylrKit` | root target | TaylrDescription, ScaffoldKit, GitHubActionsKit, LintKit, MiseKit, DevContainerKit, XcodePilot | Profiles and `config.yml`, defaults resolution, manifest loading (compile + run + decode, cached), the `validate` rules, Keychain, and the `gh`, `tuist`, `fastlane`, `mise` and `git` wrappers. No terminal UI. |
-| `taylr` | root executable | TaylrKit | The three command groups (`profile`, `project`, `package`), prompts, output and `--json`. Thin. |
+| `TaylrKit` | root target | TaylrDescription, ScaffoldKit, GitHubActionsKit, LintKit, MiseKit, DevContainerKit, XcodePilot, Yams, swift-subprocess, swift-configuration, ConfigKeyKit | Profiles and `config.yml`, defaults resolution, manifest loading (compile + run + decode, cached), the `validate` rules, Keychain, and the `gh`, `tuist`, `fastlane`, `mise` and `git` wrappers. No terminal UI. |
+| `taylr` | root executable | TaylrKit, swift-configuration, ConfigKeyKit, Noora | The three command groups (`profile`, `project`, `package`), prompts, output and `--json`. Thin. |
 | `ScaffoldKit` | `Packages/ScaffoldKit` | SyntaxKit, the model packages | `ProjectConfig`, the SyntaxKit generators, the fixed resources, and one `Scaffold.write(config, to:)` entry point. Does not know about TaylrDescription. |
 | `GitHubActionsKit` | `Packages/GitHubActionsKit` | (Yams, later) | Workflow, jobs, steps, triggers, matrix, runners. |
 | `LintKit` | `Packages/LintKit` | (Yams, Subprocess, later) | The shared lint-tool protocol, with one product per tool: `SwiftLintKit`, `SwiftFormatKit`, `HeaderKit`. |
@@ -20,6 +20,7 @@ taylr is a Swift CLI that creates a complete, ready-to-ship Swift app or Swift p
 | `DevContainerKit` | `Packages/DevContainerKit` | Foundation | `devcontainer.json`. |
 | `XcodePilot` | `Packages/XcodePilot` | ScriptingBridge, swift-subprocess | Xcode's scripting dictionary as `@objc` Swift protocols, compiled out where ScriptingBridge is missing; copied from Swoop. |
 | `SyntaxKit` | `Packages/SyntaxKit` | swift-syntax | Vendored with `git subrepo` from brightdigit/SyntaxKit, branch `taylr`. |
+| `ConfigKeyKit` | `Packages/ConfigKeyKit` | nothing | Commands, command registry and typed config keys over swift-configuration; replaces an argument parser. Vendored with `git subrepo` from brightdigit/ConfigKeyKit, branch `taylr`. |
 
 Right now every package holds only a placeholder: Phase 0 of the plan is the repository skeleton.
 
@@ -28,7 +29,7 @@ Right now every package holds only a placeholder: Phase 0 of the plan is the rep
 - **ScaffoldKit never touches git, GitHub, Keychain or network; TaylrKit never writes project files.**
 - The model packages describe file formats and nothing else: no knowledge of taylr, no file I/O beyond encoding and decoding `Data`.
 - A package under `Packages/` depends on siblings only through `.package(path: "../<Sibling>")` and never on the root. Each carries its own tests, lint configuration and license, so nothing is shared through the parent. The root `Package.swift` is the only place that knows they are local.
-- **Never edit `Packages/SyntaxKit` by hand.** Changes go upstream with `git subrepo push Packages/SyntaxKit`, and come back with `git subrepo pull Packages/SyntaxKit`.
+- **Never edit `Packages/SyntaxKit` or `Packages/ConfigKeyKit` by hand.** Changes go upstream with `git subrepo push Packages/<Name>` (both track a `taylr` branch), and come back with `git subrepo pull Packages/<Name>`.
 
 ## Rules
 
