@@ -11,3 +11,4 @@ How to use this file:
 
 ## Directives
 
+- Always expose `TaylrKit` as a library product of the root package, next to `TaylrDescription` (not only as an internal target).

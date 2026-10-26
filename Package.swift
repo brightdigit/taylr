@@ -15,6 +15,7 @@ let package = Package(
   ],
   products: [
     .library(name: "TaylrDescription", targets: ["TaylrDescription"]),
+    .library(name: "TaylrKit", targets: ["TaylrKit"]),
     .executable(name: "taylr", targets: ["taylr"]),
   ],
   dependencies: [
