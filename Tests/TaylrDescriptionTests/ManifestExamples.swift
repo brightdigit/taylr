@@ -37,7 +37,7 @@ internal enum ManifestExamples {
       )
       """,
     expected: .app(
-      App(
+      app: App(
         name: "Acme",
         profile: .named("default"),
         platforms: [.iOS(), .macOS()],
@@ -58,7 +58,7 @@ internal enum ManifestExamples {
       )
       """,
     expected: .app(
-      App(name: "Acme", profile: .named("default"), platforms: [.iOS("27.2")])
+      app: App(name: "Acme", profile: .named("default"), platforms: [.iOS("27.2")])
     )
   )
 
@@ -72,7 +72,7 @@ internal enum ManifestExamples {
       )
       """,
     expected: .package(
-      Package(name: "Acme", platforms: [.iOS(), .macOS(), .visionOS()])
+      package: Package(name: "Acme", platforms: [.iOS(), .macOS(), .visionOS()])
     )
   )
 
@@ -92,7 +92,7 @@ internal enum ManifestExamples {
       )
       """,
     expected: .package(
-      Package(
+      package: Package(
         name: "AcmeCharts",
         platforms: [.iOS(), .macOS()],
         swiftVersion: "6.1",
@@ -130,7 +130,7 @@ internal enum ManifestExamples {
     let app = Package(name: "AcmeApp", dependencies: [kit])
     let server = Package.server(dependencies: [models])
     return .app(
-      App(
+      app: App(
         name: "Acme",
         profile: .named("default"),
         platforms: [.iOS(), .macOS()],

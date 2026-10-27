@@ -34,8 +34,8 @@
 /// what the compiler can; the rules the compiler can't enforce belong to `validate`.
 public enum Manifest: Sendable, Codable, Equatable {
   /// The manifest of a Swift app.
-  case app(App)
+  case app(app: App)
 
   /// The manifest of a Swift package.
-  case package(Package)
+  case package(package: Package)
 }
