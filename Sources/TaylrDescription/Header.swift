@@ -29,10 +29,6 @@
 
 /// The comment taylr adds to the top of every Swift file when it lints.
 ///
-/// A manifest's `header` is `Header?`: `nil` turns headers off. When the manifest doesn't set
-/// one, the template is `Scripts/header.mustache`.
-public enum Header: Sendable, Codable, Equatable {
-  /// A header built from the Mustache template at this path, relative to the project root,
-  /// such as `Scripts/our-header.mustache`.
-  case file(String)
-}
+/// A manifest's `header` is optional: `nil` turns headers off. When the manifest doesn't set
+/// one, the template is `Scripts/header.mustache`. Write a header as ``file(_:)``.
+public protocol Header: ManifestValue where Serialization == HeaderSerialization {}

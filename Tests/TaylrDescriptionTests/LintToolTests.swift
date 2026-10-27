@@ -45,5 +45,10 @@ internal enum LintToolTests {
       #expect(LintTool.swiftFormat.configurationFile == ".swift-format")
       #expect(LintTool.periphery.configurationFile == ".periphery.yml")
     }
+
+    @Test("Every tool has its own configuration file", arguments: LintTool.allCases)
+    internal func everyToolHasFile(tool: LintTool) {
+      #expect(tool.configurationFile != ".\(tool.rawValue)")
+    }
   }
 }
