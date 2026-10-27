@@ -8,7 +8,7 @@ internal enum CITests {
   @Suite("Workflow.fileNames")
   internal struct WorkflowFileNamesTests {
     private struct Row {
-      let workflow: CI.Workflow
+      let workflow: GitHubActions.Workflow
       let names: [String]
     }
 
@@ -32,19 +32,24 @@ internal enum CITests {
 
     @Test("The table covers every workflow")
     internal func coversEveryWorkflow() {
-      #expect(Self.rows.map(\.workflow) == CI.Workflow.allCases)
+      #expect(Self.rows.map(\.workflow) == GitHubActions.Workflow.allCases)
+    }
+
+    @Test("Every workflow writes at least one file", arguments: GitHubActions.Workflow.allCases)
+    internal func everyWorkflowHasFiles(workflow: GitHubActions.Workflow) {
+      #expect(!workflow.fileNames.isEmpty)
     }
 
     @Test("No two workflows share a file name")
     internal func fileNamesAreDistinct() {
-      let names = CI.Workflow.allCases.flatMap(\.fileNames)
+      let names = GitHubActions.Workflow.allCases.flatMap(\.fileNames)
       #expect(Set(names).count == names.count)
     }
   }
 
   @Suite("Runners")
   internal struct RunnersTests {
-    private static let custom = CI.Runners.selfHosted(
+    private static let custom = GitHubActions.SelfHostedRunners(
       labels: ["self-hosted", "acme"],
       xcodes: ["/Applications/Xcode-26.app"]
     )
@@ -52,16 +57,28 @@ internal enum CITests {
     @Test("selfHosted() defaults its labels and xcodes")
     internal func selfHostedDefaults() {
       #expect(
-        CI.Runners.selfHosted()
+        GitHubActions.SelfHostedRunners.selfHosted().serialization
           == .selfHosted(labels: ["self-hosted", "macOS"], xcodes: ["/Applications/Xcode.app"])
       )
     }
 
     @Test("Round-trips selfHosted and githubHosted")
     internal func roundTrips() throws {
-      for value in [CI.Runners.selfHosted(), Self.custom, .githubHosted] {
+      let values: [GitHubActions.RunnersSerialization] = [
+        GitHubActions.SelfHostedRunners.selfHosted().serialization,
+        Self.custom.serialization,
+        GitHubActions.GitHubHostedRunners.githubHosted.serialization,
+      ]
+      for value in values {
         #expect(try roundTrip(value) == value)
       }
+    }
+
+    @Test("Runners encode with labeled keys")
+    internal func encodesLabeled() throws {
+      let json = try encoded(Self.custom.serialization)
+      #expect(json.contains(#""labels":"#))
+      #expect(!json.contains("_0"))
     }
   }
 
@@ -69,10 +86,9 @@ internal enum CITests {
   internal struct WorkflowTests {
     @Test("Every Workflow round-trips as its case name")
     internal func roundTrips() throws {
-      for workflow in CI.Workflow.allCases {
+      for workflow in GitHubActions.Workflow.allCases {
         #expect(try roundTrip(workflow) == workflow)
-        let json = try String(decoding: JSONEncoder().encode(workflow), as: UTF8.self)
-        #expect(json == "\"\(workflow.rawValue)\"")
+        #expect(try encoded(workflow) == "\"\(workflow.rawValue)\"")
       }
     }
   }
@@ -82,18 +98,18 @@ internal enum CITests {
     @Test("Defaults to self-hosted runners and every workflow")
     internal func defaults() {
       #expect(
-        CI.githubActions()
+        GitHubActions.githubActions()
           == .githubActions(
             runners: .selfHosted(),
-            workflows: CI.Workflow.allCases,
-            matrix: CI.Matrix()
+            workflows: GitHubActions.Workflow.allCases,
+            matrix: GitHubActions.Matrix()
           )
       )
     }
 
     @Test("The matrix reference example compiles and round-trips")
     internal func matrixReferenceExample() throws {
-      let config: CI = .githubActions(
+      let config: any CI = .githubActions(
         runners: .selfHosted(xcodes: ["/Applications/Xcode.app", "/Applications/Xcode-26.4.app"]),
         matrix: .init(
           feature: .init(include: [.linux(.jammy)]),
@@ -103,24 +119,36 @@ internal enum CITests {
           )
         )
       )
-      #expect(try roundTrip(config) == config)
-      #expect(config != .githubActions())
+      #expect(try roundTrip(config.serialization) == config.serialization)
+      #expect(config.serialization != GitHubActions.githubActions().serialization)
+      #expect(!(try encoded(config.serialization)).contains("_0"))
     }
 
     @Test("The reference example compiles and round-trips")
     internal func referenceExample() throws {
-      let config: CI = .githubActions(
+      let config: any CI = .githubActions(
         runners: .githubHosted,
         workflows: [.ci, .appStoreMetadata, .appStoreSession]
       )
-      #expect(try roundTrip(config) == config)
-      #expect(CI.githubActions(runners: .githubHosted) != config)
+      #expect(try roundTrip(config.serialization) == config.serialization)
+      #expect(
+        GitHubActions.githubActions(runners: .githubHosted).serialization != config.serialization)
+    }
+
+    @Test("An optional CI parameter takes githubActions, nil, or a default")
+    internal func optionalParameter() {
+      func serialize(_ config: (any CI)? = .githubActions()) -> CISerialization? {
+        config?.serialization
+      }
+      #expect(serialize() == GitHubActions().serialization)
+      #expect(serialize(nil) == nil)
+      #expect(serialize(.githubActions(runners: .githubHosted)) != serialize())
     }
   }
 
   @Suite("Matrix")
   internal struct MatrixTests {
-    private static let entries: [CI.MatrixEntry] = [
+    private static let entries: [any GitHubActions.MatrixEntry] = [
       .swift("6.1"), .linux(.noble), .linux(.jammy), .wasm, .wasmEmbedded,
       .windows(.v2022), .windows(.v2025), .android(api: 34), .android(api: 35),
       .xcode("26.4"), .xcode(path: "/Applications/Xcode-26.4.app"),
@@ -128,30 +156,44 @@ internal enum CITests {
 
     @Test("Matrix and Entries default to empty")
     internal func defaults() {
-      let matrix = CI.Matrix()
-      #expect(matrix.feature == CI.Matrix.Entries(include: [], exclude: []))
-      #expect(matrix.version == CI.Matrix.Entries())
-      #expect(matrix.main == CI.Matrix.Entries())
-      #expect(CI.Matrix.Entries().include.isEmpty)
-      #expect(CI.Matrix.Entries().exclude.isEmpty)
+      let matrix = GitHubActions.Matrix()
+      #expect(matrix.feature == GitHubActions.Matrix.Entries(include: [], exclude: []))
+      #expect(matrix.version == GitHubActions.Matrix.Entries())
+      #expect(matrix.main == GitHubActions.Matrix.Entries())
+      #expect(GitHubActions.Matrix.Entries().include.isEmpty)
+      #expect(GitHubActions.Matrix.Entries().exclude.isEmpty)
     }
 
-    @Test("Each entry round-trips", arguments: entries)
-    internal func entryRoundTrips(entry: CI.MatrixEntry) throws {
-      #expect(try roundTrip(entry) == entry)
+    @Test("Each entry round-trips with labeled keys")
+    internal func entriesRoundTrip() throws {
+      for entry in Self.entries {
+        #expect(try roundTrip(entry.serialization) == entry.serialization)
+        #expect(!(try encoded(entry.serialization)).contains("_0"))
+      }
+    }
+
+    @Test("Every entry serializes differently")
+    internal func entriesAreDistinct() {
+      let serializations = Self.entries.map { $0.serialization }
+      for (index, serialization) in serializations.enumerated() {
+        #expect(!serializations[(index + 1)...].contains(serialization))
+      }
     }
 
     @Test("The two xcode spellings and the android levels stay distinct")
     internal func distinctEntries() throws {
-      #expect(CI.MatrixEntry.xcode("26.4") != .xcode(path: "26.4"))
-      #expect(CI.MatrixEntry.android(api: 34) != .android(api: 35))
-      let decoded = try roundTrip(CI.MatrixEntry.xcode(path: "26.4"))
-      #expect(decoded == .xcode(path: "26.4"))
+      let version = GitHubActions.XcodeVersionEntry(version: "26.4")
+      let path = GitHubActions.XcodePathEntry(path: "26.4")
+      #expect(!GitHubActions.XcodeVersionEntry.serializesEqually(version, path))
+      let android34 = GitHubActions.AndroidEntry(api: 34)
+      let android35 = GitHubActions.AndroidEntry(api: 35)
+      #expect(!GitHubActions.AndroidEntry.serializesEqually(android34, android35))
+      #expect(try roundTrip(path.serialization) == .xcodePath(path: "26.4"))
     }
 
     @Test("A full matrix round-trips")
     internal func matrixRoundTrips() throws {
-      let matrix = CI.Matrix(
+      let matrix = GitHubActions.Matrix(
         feature: .init(include: [.wasm], exclude: [.windows(.v2025)]),
         version: .init(exclude: [.swift("6.0")]),
         main: .init(include: Self.entries)
@@ -163,4 +205,8 @@ internal enum CITests {
 
 private func roundTrip<T: Codable & Equatable>(_ value: T) throws -> T {
   try JSONDecoder().decode(T.self, from: JSONEncoder().encode(value))
+}
+
+private func encoded(_ value: some Encodable) throws -> String {
+  try String(decoding: JSONEncoder().encode(value), as: UTF8.self)
 }
