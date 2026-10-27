@@ -37,7 +37,10 @@
 /// `TaylrDescription.Package`.
 public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral {
   /// The package's name. It must be a valid Swift name.
-  public var name: String
+  ///
+  /// `nil` only for a server created with ``server(name:platforms:dependencies:framework:)``
+  /// without a name: it becomes `<App>Server` once the app's name is known.
+  public var name: String?
 
   /// Minimum platform versions, as in the `platforms` of `Package.swift`. Empty means SwiftPM's
   /// own minimums.
@@ -80,6 +83,11 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
 
   /// The AI coding agents to set up.
   public var agents: [Agent]
+
+  /// The server framework, or `nil` for a package that isn't a server.
+  ///
+  /// Only ``Package/server(name:platforms:dependencies:framework:)`` sets it.
+  public internal(set) var framework: ServerFramework?
 
   /// Creates a Swift package.
   ///
@@ -138,5 +146,32 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   /// - Parameter value: The package's name.
   public init(stringLiteral value: String) {
     self.init(name: value)
+  }
+}
+
+extension Package {
+  /// Creates the server package: a package with a server framework.
+  ///
+  /// Every other setting takes the same default as a plain package.
+  ///
+  /// - Parameters:
+  ///   - name: The package's name. Defaults to `nil`: `<App>Server`, once the app's name is known.
+  ///     Until then the package's ``name`` is `nil`.
+  ///   - platforms: Minimum platform versions. Like every Swift package, it also builds on Linux,
+  ///     where it's deployed. Defaults to `[.macOS()]`.
+  ///   - dependencies: The packages the server uses. Defaults to none.
+  ///   - framework: The server framework and its routing. Defaults to `.hummingbird()`, with the
+  ///     built-in router.
+  /// - Returns: The server package.
+  public static func server(
+    name: String? = nil,
+    platforms: [Platform] = [.macOS()],
+    dependencies: [any DependencyConvertible] = [],
+    framework: ServerFramework = .hummingbird()
+  ) -> Package {
+    var package = Package(name: name ?? "", platforms: platforms, dependencies: dependencies)
+    package.name = name
+    package.framework = framework
+    return package
   }
 }

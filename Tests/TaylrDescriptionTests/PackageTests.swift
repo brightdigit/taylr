@@ -123,6 +123,55 @@ internal enum PackageTests {
     }
   }
 
+  @Suite("Server")
+  internal struct ServerTests {
+    @Test("server() takes the documented defaults")
+    internal func takesDocumentedDefaults() {
+      let server = Package.server()
+      #expect(server.name == nil)
+      #expect(server.platforms == [.macOS()])
+      #expect(server.dependencies.isEmpty)
+      #expect(server.framework == .hummingbird(routing: .builtIn))
+    }
+
+    @Test("A named server keeps its name")
+    internal func keepsName() {
+      #expect(Package.server(name: "AcmeServer").name == "AcmeServer")
+    }
+
+    @Test("The reference's server example compiles")
+    internal func referenceExample() {
+      let models = Package(name: "AcmeModels")
+      let server = Package.server(
+        name: "AcmeServer",
+        dependencies: [models],
+        framework: .hummingbird(routing: .openAPI)
+      )
+      #expect(server.dependencies == [.local(models)])
+      #expect(server.framework == .hummingbird(routing: .openAPI))
+    }
+
+    @Test("A server takes dependencies by name")
+    internal func dependenciesByName() {
+      #expect(Package.server(dependencies: ["AcmeKit"]).dependencies == [.local("AcmeKit")])
+    }
+
+    @Test("The openAPI server round-trips")
+    internal func openAPIRoundTrips() throws {
+      let server = Package.server(framework: .hummingbird(routing: .openAPI))
+      let data = try JSONEncoder().encode(server)
+      let decoded = try JSONDecoder().decode(Package.self, from: data)
+      #expect(decoded.framework == .hummingbird(routing: .openAPI))
+      #expect(decoded.platforms == [.macOS()])
+    }
+
+    @Test("A server differs from a plain package in its framework")
+    internal func differsFromPlainPackage() {
+      #expect(Package.server(name: "AcmeServer").framework != nil)
+      #expect(Package(name: "AcmeServer").framework == nil)
+    }
+  }
+
   @Suite("Reference examples")
   internal struct ReferenceExampleTests {
     @Test("The Swift package example compiles")
