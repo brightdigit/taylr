@@ -8,25 +8,25 @@ internal enum PackagesTests {
   internal struct PresetTests {
     @Test("appOnly is AcmeApp depending on AcmeKit")
     internal func appOnly() throws {
-      let resolved = try Packages.appOnly.resolvedPackages(appName: "Acme")
+      let resolved = try AppOnlyLayout.appOnly.resolvedPackages(appName: "Acme")
       #expect(resolved.map(\.name) == ["AcmeApp", "AcmeKit"])
-      #expect(resolved[0].dependencies == ["AcmeKit"].map(\.dependency))
+      #expect(resolved[0].dependencies == ["AcmeKit"].map(\.serialization))
     }
 
     @Test("withServer(.server()) names the server AcmeServer; app and server use AcmeKit")
     internal func withServer() throws {
-      let resolved = try Packages.withServer(.server()).resolvedPackages(appName: "Acme")
+      let resolved = try ServerLayout.withServer(.server()).resolvedPackages(appName: "Acme")
       #expect(resolved.map(\.name) == ["AcmeApp", "AcmeKit", "AcmeServer"])
       #expect(resolved[2].framework == .hummingbird())
-      #expect(resolved[2].dependencies == ["AcmeKit"].map(\.dependency))
+      #expect(resolved[2].dependencies == ["AcmeKit"].map(\.serialization))
     }
 
     @Test("withServer keeps the server's own dependencies and name")
     internal func withServerKeepsDependencies() throws {
       let server = Package.server(name: "AcmeAPI", dependencies: ["AcmeModels"])
-      let resolved = try Packages.withServer(server).resolvedPackages(appName: "Acme")
+      let resolved = try ServerLayout.withServer(server).resolvedPackages(appName: "Acme")
       #expect(resolved.map(\.name) == ["AcmeApp", "AcmeKit", "AcmeAPI", "AcmeModels"])
-      #expect(resolved[2].dependencies == ["AcmeModels", "AcmeKit"].map(\.dependency))
+      #expect(resolved[2].dependencies == ["AcmeModels", "AcmeKit"].map(\.serialization))
     }
   }
 
@@ -87,9 +87,28 @@ internal enum PackagesTests {
     }
   }
 
+  @Suite("Serialization")
+  internal struct SerializationTests {
+    private static let layouts: [any PackageLayout] = [
+      .appOnly,
+      .withServer(.server(name: "AcmeServer")),
+      Packages(client: "AcmeApp", server: .server(), others: ["AcmeExperiments"]),
+    ]
+
+    @Test("Every layout round-trips with labeled keys")
+    internal func roundTrips() throws {
+      for layout in Self.layouts {
+        let data = try JSONEncoder().encode(layout.serialization)
+        let decoded = try JSONDecoder().decode(PackageLayoutSerialization.self, from: data)
+        #expect(decoded == layout.serialization)
+        #expect(!String(decoding: data, as: UTF8.self).contains("_0"))
+      }
+    }
+  }
+
   @Suite("GraphError")
   internal struct GraphErrorTests {
-    private static func error(_ packages: Packages) -> Packages.GraphError? {
+    private static func error(_ packages: any PackageLayout) -> Packages.GraphError? {
       do {
         _ = try packages.resolvedPackages(appName: "Acme")
         return nil
@@ -182,7 +201,8 @@ internal enum PackagesTests {
     }
   }
 
-  private static func names(_ packages: Packages, app: String = "Acme") throws -> [String?] {
+  private static func names(_ packages: any PackageLayout, app: String = "Acme") throws -> [String?]
+  {
     try packages.resolvedPackages(appName: app).map(\.name)
   }
 }
