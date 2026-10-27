@@ -1,5 +1,5 @@
 //
-//  TaylrDescription.swift
+//  ProfileReference.swift
 //  taylr
 //
 //  Created by Leo Dion.
@@ -27,7 +27,26 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-/// The namespace for TaylrDescription, the module every `Manifest.swift` imports.
-///
-/// A placeholder until the manifest types (`App`, `Package` and the rest) land.
-public enum TaylrDescription {}
+/// A profile named in `~/.taylr/profiles/`, spelled `.named("client-x")`.
+public struct ProfileReference: ProfileSource {
+  /// The profile's name.
+  public var name: String
+
+  /// The profile as ``ProfileSerialization/reference(name:)``.
+  public var serialization: ProfileSerialization { .reference(name: name) }
+
+  /// Creates a reference to a named profile.
+  /// - Parameter name: The profile's name.
+  public init(name: String) {
+    self.name = name
+  }
+}
+
+extension ProfileSource where Self == ProfileReference {
+  /// A profile named in `~/.taylr/profiles/`.
+  /// - Parameter name: The profile's name, such as `"client-x"`.
+  /// - Returns: The profile.
+  public static func named(_ name: String) -> ProfileReference {
+    ProfileReference(name: name)
+  }
+}

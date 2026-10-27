@@ -28,59 +28,7 @@
 //
 
 /// How continuous integration runs for a project.
-public enum CI: Sendable, Codable, Equatable {  // swiftlint:disable:this type_name
-  /// Run CI on GitHub Actions, writing the workflows into `.github/workflows/`.
-  ///
-  /// - Parameters:
-  ///   - runners: Where the macOS jobs run. Defaults to `.selfHosted()`.
-  ///   - workflows: The workflows to write. Defaults to all of them.
-  ///   - matrix: Builds to add to, or leave out of, the standard builds. Defaults to none.
-  case githubActions(
-    runners: Runners = .selfHosted(),
-    workflows: [Workflow] = Workflow.allCases,
-    matrix: Matrix = Matrix()
-  )
-
-  /// Where the macOS jobs run. Linux, Windows and Android jobs always run on GitHub's runners.
-  public enum Runners: Sendable, Codable, Equatable {
-    /// Run the macOS jobs on your own Macs, picked by their runner labels.
-    ///
-    /// - Parameters:
-    ///   - labels: The runner labels. Defaults to `["self-hosted", "macOS"]`.
-    ///   - xcodes: The Xcode apps installed on the Macs, by path. Defaults to
-    ///     `["/Applications/Xcode.app"]`.
-    case selfHosted(
-      labels: [String] = ["self-hosted", "macOS"],
-      xcodes: [String] = ["/Applications/Xcode.app"]
-    )
-
-    /// Run the macOS jobs on GitHub's runners, which are free for public repositories.
-    case githubHosted
-  }
-
-  /// A workflow in `.github/workflows/`.
-  public enum Workflow: String, Sendable, Codable, Equatable, CaseIterable {
-    /// Builds, lints and tests pull requests and `main`. In an app, uploads `main` to TestFlight.
-    case ci  // swiftlint:disable:this identifier_name
-    /// Uploads the App Store listing when run from the Actions tab. Apps with fastlane only.
-    case appStoreMetadata
-    /// Checks every week that the App Store session hasn't expired. Apps with fastlane only.
-    case appStoreSession
-    /// Deletes old GitHub Actions caches, and a pull request's caches when it closes.
-    case cleanup
-    /// Answers `@claude` in issues and pull requests, and reviews pull requests.
-    case claude
-
-    /// The file names this workflow writes into `.github/workflows/`, the same in an app and a
-    /// package.
-    public var fileNames: [String] {
-      switch self {
-      case .ci: ["integration.yml"]
-      case .appStoreMetadata: ["app-store-metadata.yml"]
-      case .appStoreSession: ["asc-session.yml"]
-      case .cleanup: ["cleanup-caches.yml", "cleanup-pr-caches.yml"]
-      case .claude: ["claude.yml", "claude-code-review.yml"]
-      }
-    }
-  }
-}
+///
+/// Write CI as ``githubActions(runners:workflows:matrix:)``. Models store it as a
+/// ``CISerialization``.
+public protocol CI: ManifestValue where Serialization == CISerialization {}
