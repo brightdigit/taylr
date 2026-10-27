@@ -1,5 +1,5 @@
 //
-//  DependencyConvertible.swift
+//  Dependency+Spellings.swift
 //  taylr
 //
 //  Created by Leo Dion.
@@ -27,64 +27,44 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-/// A value that can appear in a package's `dependencies`: a ``Dependency``, a ``Package``, or a
-/// string that names one of the app's packages.
-///
-/// Swift has no implicit conversion, so one array literal can only hold `models`,
-/// `"AcmeUtilities"` and `.package(url:from:)` together if they share a protocol. This protocol is
-/// that, and nothing more: it is not meant to be adopted by other types.
-public protocol DependencyConvertible: Sendable {
-  /// The dependency this value stands for. A ``Package`` and a string are `.local`.
-  var dependency: Dependency { get }
-}
-
-extension Dependency: DependencyConvertible {
-  /// A dependency is itself.
-  public var dependency: Dependency { self }
-}
-
-extension Package: DependencyConvertible {
-  /// A package is one of the app's own packages: `.local(self)`.
-  public var dependency: Dependency { .local(self) }
-}
-
-extension String: DependencyConvertible {
-  /// A string names one of the app's own packages: `.local(Package(name: self))`.
-  public var dependency: Dependency { .local(Package(name: self)) }
-}
-
-extension DependencyConvertible where Self == Dependency {
+extension Dependency where Self == UpToNextMajorDependency {
   /// A package from a URL, at a version from `version` up to the next major version.
   /// - Parameters:
   ///   - url: The package's URL.
   ///   - version: The lowest version to use, such as `"1.1.0"`.
   /// - Returns: The dependency.
-  public static func package(url: String, from version: String) -> Dependency {
-    .upToNextMajor(url: url, from: version)
+  public static func package(url: String, from version: String) -> UpToNextMajorDependency {
+    UpToNextMajorDependency(url: url, from: version)
   }
+}
 
+extension Dependency where Self == ExactDependency {
   /// A package from a URL, at exactly one version.
   /// - Parameters:
   ///   - url: The package's URL.
   ///   - version: The version to use, such as `"1.6.1"`.
   /// - Returns: The dependency.
-  public static func package(url: String, exact version: String) -> Dependency {
-    .exact(url: url, version: version)
+  public static func package(url: String, exact version: String) -> ExactDependency {
+    ExactDependency(url: url, exact: version)
   }
+}
 
+extension Dependency where Self == BranchDependency {
   /// A package from a URL, on a branch.
   /// - Parameters:
   ///   - url: The package's URL.
   ///   - branch: The branch to track, such as `"main"`.
   /// - Returns: The dependency.
-  public static func package(url: String, branch: String) -> Dependency {
-    .branch(url: url, name: branch)
+  public static func package(url: String, branch: String) -> BranchDependency {
+    BranchDependency(url: url, branch: branch)
   }
+}
 
+extension Dependency where Self == PathDependency {
   /// A package on disk.
   /// - Parameter path: The package's path, relative to the package that uses it.
   /// - Returns: The dependency.
-  public static func package(path: String) -> Dependency {
-    .path(path)
+  public static func package(path: String) -> PathDependency {
+    PathDependency(path: path)
   }
 }

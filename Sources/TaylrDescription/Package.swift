@@ -48,8 +48,8 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   public var swiftVersion: String?
 
   /// The packages this one uses: third-party packages, and inside an app, the app's other
-  /// packages (``Dependency/local(_:)``).
-  public var dependencies: [Dependency]
+  /// packages (``DependencySerialization/local(package:)``).
+  public var dependencies: [DependencySerialization]
 
   /// The taylr version the package was created with. Ignored inside an app.
   public var taylrVersion: String
@@ -90,7 +90,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   ///     the selected Xcode.
   ///   - dependencies: The packages this one uses: ``Dependency`` values such as
   ///     `.package(url:from:)`, plus ``Package`` values and package names, which become
-  ///     ``Dependency/local(_:)``. Defaults to none.
+  ///     ``DependencySerialization/local(package:)``. Defaults to none.
   ///   - taylrVersion: The taylr version the package was created with. Defaults to `"1.0.0"`.
   ///   - includeNightly: Also test the next Swift's nightly build. Defaults to `false`.
   ///   - github: The GitHub repository. Defaults to `nil`.
@@ -105,7 +105,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
     name: String,
     platforms: [Platform] = [],
     swiftVersion: String? = nil,
-    dependencies: [any DependencyConvertible] = [],
+    dependencies: [any Dependency] = [],
     taylrVersion: String = "1.0.0",
     includeNightly: Bool = false,
     github: GitHub? = nil,
@@ -121,7 +121,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
     self.name = name
     self.platforms = platforms
     self.swiftVersion = swiftVersion
-    self.dependencies = dependencies.map(\.dependency)
+    self.dependencies = dependencies.map { $0.serialization }
     self.taylrVersion = taylrVersion
     self.includeNightly = includeNightly
     self.github = github
