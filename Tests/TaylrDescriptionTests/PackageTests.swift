@@ -98,7 +98,7 @@ internal enum PackageTests {
       #expect(decoded.name == "AcmeCharts")
       #expect(decoded.platforms == [.iOS(), .macOS("27.2")])
       #expect(decoded.swiftVersion == "6.1")
-      #expect(decoded.dependencies.map(\.name) == ["AcmeUtilities"])
+      #expect(decoded.dependencies == [.local(Package(name: "AcmeUtilities"))])
       #expect(decoded.taylrVersion == "1.2.3")
       #expect(decoded.includeNightly)
       #expect(decoded.github == .init(repository: "acme/AcmeCharts"))
