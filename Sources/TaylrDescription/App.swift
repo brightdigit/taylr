@@ -37,7 +37,7 @@ public struct App: Sendable, Codable, Equatable {
   public var name: String
 
   /// The profile the app uses.
-  public var profile: Profile
+  public var profile: ProfileSerialization
 
   /// The platforms and their minimum versions. The app gets a target for each.
   public var platforms: [Platform]
@@ -52,7 +52,7 @@ public struct App: Sendable, Codable, Equatable {
   public var urls: URLs?
 
   /// The app's local packages and how they depend on each other.
-  public var packages: Packages
+  public var packages: PackageLayoutSerialization
 
   /// The App Store tools, or `nil` for none.
   public var appStoreConnect: AppStoreConnect?
@@ -82,7 +82,7 @@ public struct App: Sendable, Codable, Equatable {
   public var github: GitHub?
 
   /// How CI runs, or `nil` for no CI.
-  public var ci: CI?  // swiftlint:disable:this identifier_name
+  public var ci: CISerialization?  // swiftlint:disable:this identifier_name
 
   /// The Swift language version, or `nil` for the Swift that comes with the selected Xcode.
   public var swiftVersion: String?
@@ -97,7 +97,7 @@ public struct App: Sendable, Codable, Equatable {
   public var lint: [LintTool]
 
   /// The file header template, or `nil` for none.
-  public var header: Header?
+  public var header: HeaderSerialization?
 
   /// The license.
   public var license: License
@@ -118,7 +118,7 @@ public struct App: Sendable, Codable, Equatable {
   ///     the name.
   ///   - appGroupID: The app group. Defaults to `nil`: `group.` followed by the bundle ID.
   ///   - urls: The app's web links. Defaults to `nil`.
-  ///   - packages: The app's packages. Defaults to ``Packages/appOnly``.
+  ///   - packages: The app's packages. Defaults to ``PackageLayout/appOnly``.
   ///   - appStoreConnect: The App Store tools. Defaults to ``AppStoreConnect/fastlane``.
   ///   - screenshots: How screenshots are captured. Defaults to ``Screenshots/fastlaneSnapshot``.
   ///   - distribution: Where the app ships. Defaults to `[.appStore]`.
@@ -141,12 +141,12 @@ public struct App: Sendable, Codable, Equatable {
   ///   - agents: The AI coding agents to set up. Defaults to `[.claudeCode]`.
   public init(
     name: String,
-    profile: Profile,
+    profile: any ProfileSource,
     platforms: [Platform],
     bundleID: String? = nil,
     appGroupID: String? = nil,
     urls: URLs? = nil,
-    packages: Packages = .appOnly,
+    packages: any PackageLayout = .appOnly,
     appStoreConnect: AppStoreConnect? = .fastlane,
     screenshots: Screenshots? = .fastlaneSnapshot,
     distribution: [Distribution] = [.appStore],
@@ -157,23 +157,23 @@ public struct App: Sendable, Codable, Equatable {
     taylrVersion: String = "1.0.0",
     github: GitHub? = nil,
     // swiftlint:disable:next identifier_name
-    ci: CI? = .githubActions(),
+    ci: (any CI)? = .githubActions(),
     swiftVersion: String? = nil,
     includeNightly: Bool = false,
     devcontainer: Bool = true,
     lint: [LintTool] = [.swiftLint, .swiftFormat],
-    header: Header? = .file("Scripts/header.mustache"),
+    header: (any Header)? = .file("Scripts/header.mustache"),
     license: License = .proprietary,
     gitLFS: Bool = true,
     agents: [Agent] = [.claudeCode]
   ) {
     self.name = name
-    self.profile = profile
+    self.profile = profile.serialization
     self.platforms = platforms
     self.bundleID = bundleID
     self.appGroupID = appGroupID
     self.urls = urls
-    self.packages = packages
+    self.packages = packages.serialization
     self.appStoreConnect = appStoreConnect
     self.screenshots = screenshots
     self.distribution = distribution
@@ -183,12 +183,12 @@ public struct App: Sendable, Codable, Equatable {
     self.generator = generator
     self.taylrVersion = taylrVersion
     self.github = github
-    self.ci = ci
+    self.ci = ci?.serialization
     self.swiftVersion = swiftVersion
     self.includeNightly = includeNightly
     self.devcontainer = devcontainer
     self.lint = lint
-    self.header = header
+    self.header = header?.serialization
     self.license = license
     self.gitLFS = gitLFS
     self.agents = agents
