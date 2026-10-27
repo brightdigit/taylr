@@ -44,6 +44,16 @@ public import Foundation
 /// When the binary runs, it prints the manifest as JSON to standard output; taylr decodes that
 /// with ``manifest(from:)``. Both directions use the same fixed settings: sorted keys, so equal
 /// manifests print the same bytes.
+///
+/// ## JSON shape
+///
+/// Every enum with associated values encodes as an object with one key, the case name, whose
+/// value is an object keyed by the case's labels: `{"file":{"path":"Scripts/header.mustache"}}`,
+/// `{"reference":{"name":"default"}}`, `{"app":{"app":{…}}}`. Every associated value has a label,
+/// so no `_0` key appears. A case without values encodes as an empty object, such as
+/// `{"appOnly":{}}`, and a `String`-backed enum as its case name, such as `"swiftLint"`.
+/// Protocol values, such as a ``Header`` or a ``ProfileSource``, are stored and encoded as their
+/// serialization, such as ``HeaderSerialization``.
 public enum ManifestJSON {
   /// The JSON for a manifest.
   /// - Parameter manifest: The manifest to encode.
@@ -78,7 +88,7 @@ public enum ManifestJSON {
   /// - Parameter app: The app to print.
   /// - Throws: An `EncodingError` if the app can't be encoded.
   public static func write(_ app: App) throws {
-    try write(.app(app))
+    try write(.app(app: app))
   }
 
   /// Prints a package's manifest as JSON to standard output.
@@ -87,6 +97,6 @@ public enum ManifestJSON {
   /// - Parameter package: The package to print.
   /// - Throws: An `EncodingError` if the package can't be encoded.
   public static func write(_ package: Package) throws {
-    try write(.package(package))
+    try write(.package(package: package))
   }
 }
