@@ -34,7 +34,12 @@ public enum CI: Sendable, Codable, Equatable {  // swiftlint:disable:this type_n
   /// - Parameters:
   ///   - runners: Where the macOS jobs run. Defaults to `.selfHosted()`.
   ///   - workflows: The workflows to write. Defaults to all of them.
-  case githubActions(runners: Runners = .selfHosted(), workflows: [Workflow] = Workflow.allCases)
+  ///   - matrix: Builds to add to, or leave out of, the standard builds. Defaults to none.
+  case githubActions(
+    runners: Runners = .selfHosted(),
+    workflows: [Workflow] = Workflow.allCases,
+    matrix: Matrix = Matrix()
+  )
 
   /// Where the macOS jobs run. Linux, Windows and Android jobs always run on GitHub's runners.
   public enum Runners: Sendable, Codable, Equatable {
