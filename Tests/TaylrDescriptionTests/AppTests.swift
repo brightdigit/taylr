@@ -10,7 +10,7 @@ internal enum AppTests {
     internal func defaults() {
       let app = AppTests.minimal
       #expect(app.name == "Acme")
-      #expect(app.profile == .named("default"))
+      #expect(app.profile == .reference(name: "default"))
       #expect(app.platforms == [.iOS()])
       #expect(app.bundleID == nil)
       #expect(app.appGroupID == nil)
@@ -25,12 +25,12 @@ internal enum AppTests {
       #expect(app.generator == .tuist)
       #expect(app.taylrVersion == "1.0.0")
       #expect(app.github == nil)
-      #expect(app.ci == .githubActions())
+      #expect(app.ci == GitHubActions().serialization)
       #expect(app.swiftVersion == nil)
       #expect(!app.includeNightly)
       #expect(app.devcontainer)
       #expect(app.lint == [.swiftLint, .swiftFormat])
-      #expect(app.header == .file("Scripts/header.mustache"))
+      #expect(app.header == .file(path: "Scripts/header.mustache"))
       #expect(app.license == .proprietary)
       #expect(app.gitLFS)
       #expect(app.agents == [.claudeCode])
@@ -45,7 +45,7 @@ internal enum AppTests {
         platforms: [.iOS()],
         server: server
       )
-      #expect(app.packages == .withServer(server))
+      #expect(app.packages == .withServer(server: server))
     }
 
     @Test("server: leaves the other defaults alone")
@@ -109,7 +109,7 @@ internal enum AppTests {
     internal func inlineProfileAndCI() {
       let manifest = App(
         name: "Acme",
-        profile: .init(
+        profile: .custom(
           organization: "Client X Inc",
           bundleIDPrefix: "com.clientx",
           apple: .init(teamID: "ABCDE12345", ascTeamID: "7654321"),
@@ -124,11 +124,11 @@ internal enum AppTests {
         )
       )
       #expect(manifest.urls?.support == "https://acme.example/help")
-      let expected = CI.githubActions(
+      let expected = GitHubActions.githubActions(
         runners: .githubHosted,
         workflows: [.ci, .appStoreMetadata, .appStoreSession]
       )
-      #expect(manifest.ci == expected)
+      #expect(manifest.ci == expected.serialization)
     }
   }
 
