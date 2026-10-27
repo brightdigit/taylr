@@ -79,7 +79,6 @@ extension App {
     generator: Generator = .tuist,
     taylrVersion: String = "1.0.0",
     github: GitHub? = nil,
-    // swiftlint:disable:next identifier_name
     ci: CI? = .githubActions(),
     swiftVersion: String? = nil,
     includeNightly: Bool = false,

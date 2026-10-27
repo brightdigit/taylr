@@ -28,7 +28,7 @@
 //
 
 /// How continuous integration runs for a project.
-public enum CI: Sendable, Codable, Equatable {  // swiftlint:disable:this type_name
+public enum CI: Sendable, Codable, Equatable {
   /// Run CI on GitHub Actions, writing the workflows into `.github/workflows/`.
   ///
   /// - Parameters:
@@ -61,7 +61,7 @@ public enum CI: Sendable, Codable, Equatable {  // swiftlint:disable:this type_n
   /// A workflow in `.github/workflows/`.
   public enum Workflow: String, Sendable, Codable, Equatable, CaseIterable {
     /// Builds, lints and tests pull requests and `main`. In an app, uploads `main` to TestFlight.
-    case ci  // swiftlint:disable:this identifier_name
+    case ci
     /// Uploads the App Store listing when run from the Actions tab. Apps with fastlane only.
     case appStoreMetadata
     /// Checks every week that the App Store session hasn't expired. Apps with fastlane only.

@@ -79,7 +79,7 @@ public enum Profile: Sendable, Codable, Equatable {
       /// A Git repository, by its URL.
       case git(String)
       /// An Amazon S3 bucket.
-      case s3(bucket: String, region: String)  // swiftlint:disable:this identifier_name
+      case s3(bucket: String, region: String)
       /// A Google Cloud Storage bucket.
       case googleCloudStorage(bucket: String)
       /// A GitLab project's secure files.

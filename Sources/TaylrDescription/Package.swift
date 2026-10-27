@@ -64,7 +64,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   public var github: GitHub?
 
   /// How CI runs, or `nil` for no CI.
-  public var ci: CI?  // swiftlint:disable:this identifier_name
+  public var ci: CI?
 
   /// Whether to add dev containers in `.devcontainer/`.
   public var devcontainer: Bool
@@ -117,7 +117,6 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
     taylrVersion: String = "1.0.0",
     includeNightly: Bool = false,
     github: GitHub? = nil,
-    // swiftlint:disable:next identifier_name
     ci: CI? = .githubActions(workflows: [.ci, .cleanup, .claude]),
     devcontainer: Bool = true,
     lint: [LintTool] = [.swiftLint, .swiftFormat],

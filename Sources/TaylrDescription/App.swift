@@ -85,7 +85,7 @@ public struct App: Sendable, Codable, Equatable {
   public var github: GitHub?
 
   /// How CI runs, or `nil` for no CI.
-  public var ci: CI?  // swiftlint:disable:this identifier_name
+  public var ci: CI?
 
   /// The Swift language version, or `nil` for the Swift that comes with the selected Xcode.
   public var swiftVersion: String?
@@ -159,7 +159,6 @@ public struct App: Sendable, Codable, Equatable {
     generator: Generator = .tuist,
     taylrVersion: String = "1.0.0",
     github: GitHub? = nil,
-    // swiftlint:disable:next identifier_name
     ci: CI? = .githubActions(),
     swiftVersion: String? = nil,
     includeNightly: Bool = false,

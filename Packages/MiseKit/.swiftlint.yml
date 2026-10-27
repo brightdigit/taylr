@@ -107,13 +107,20 @@ closure_body_length:
   - 60
 type_name:
   min_length: 3
+  # Names the manifest reference mandates.
+  excluded:
+    - CI
   max_length:
     warning: 50
     error: 60
 identifier_name:
+  # Short names the manifest reference mandates, plus common ones.
   excluded:
+    - ci
     - id
     - no
+    - s3
+    - uv
 excluded:
   - DerivedData
   - .build

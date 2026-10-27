@@ -33,5 +33,5 @@
 public enum PressKit: String, Sendable, Codable, Equatable {
   /// Add `Scripts/generate-icons.sh`, which exports the app icon into `Marketing/icons/` with
   /// uv. The default.
-  case uv  // swiftlint:disable:this identifier_name
+  case uv
 }
