@@ -77,19 +77,36 @@ let manifest = Package(
 taylr compiles `Manifest.swift` with a driver that calls ``ManifestJSON/write(_:)-(Manifest)`` and
 runs it. The binary prints the manifest as JSON, which taylr decodes into a ``Manifest``.
 
+### Protocols and their serializations
+
+Settings that come in several kinds, such as a profile or a dependency, are protocols in the
+style of SwiftUI's `ButtonStyle`: you write `.named("default")` or
+`.package(url:from:)`, and a concrete type such as ``ProfileReference`` stands behind it. Each
+protocol refines ``ManifestValue``, which turns a value into one serialization enum, such as
+``ProfileSerialization``. ``App`` and ``Package`` store those enums, so they stay `Codable` and
+`Equatable`, and taylr handles every case.
+
 ## Topics
 
 ### The manifest
 
 - ``Manifest``
 - ``ManifestJSON``
+- ``ManifestValue``
 
 ### An app
 
 - ``App``
-- ``Profile``
+- ``ProfileSource``
+- ``ProfileReference``
+- ``CustomProfile``
+- ``ProfileSerialization``
 - ``URLs``
+- ``PackageLayout``
+- ``AppOnlyLayout``
+- ``ServerLayout``
 - ``Packages``
+- ``PackageLayoutSerialization``
 - ``AppStoreConnect``
 - ``Screenshots``
 - ``Distribution``
@@ -100,8 +117,14 @@ runs it. The binary prints the manifest as JSON, which taylr decodes into a ``Ma
 
 - ``Package``
 - ``Dependency``
-- ``DependencyConvertible``
+- ``UpToNextMajorDependency``
+- ``ExactDependency``
+- ``BranchDependency``
+- ``PathDependency``
+- ``DependencySerialization``
 - ``ServerFramework``
+- ``HummingbirdServer``
+- ``ServerFrameworkSerialization``
 
 ### Platforms
 
@@ -112,7 +135,11 @@ runs it. The binary prints the manifest as JSON, which taylr decodes into a ``Ma
 
 - ``GitHub``
 - ``CI``
+- ``GitHubActions``
+- ``CISerialization``
 - ``LintTool``
 - ``Header``
+- ``FileHeader``
+- ``HeaderSerialization``
 - ``License``
 - ``Agent``

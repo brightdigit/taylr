@@ -31,21 +31,7 @@
 /// app's own packages.
 ///
 /// Write third-party dependencies as in SwiftPM: `.package(url:from:)`, `.package(url:exact:)`,
-/// `.package(url:branch:)` and `.package(path:)`. A ``Package`` or a package name in
-/// `dependencies:` becomes ``local(_:)``. See ``DependencyConvertible``.
-public indirect enum Dependency: Sendable, Codable, Equatable {
-  /// `.package(url:from:)`: a package from a URL, from `from` up to the next major version.
-  case upToNextMajor(url: String, from: String)
-
-  /// `.package(url:exact:)`: a package from a URL, at exactly `version`.
-  case exact(url: String, version: String)
-
-  /// `.package(url:branch:)`: a package from a URL, on the branch `name`.
-  case branch(url: String, name: String)
-
-  /// `.package(path:)`: a package on disk.
-  case path(String)
-
-  /// One of the app's own packages. taylr links its library for you.
-  case local(Package)
-}
+/// `.package(url:branch:)` and `.package(path:)`. A ``Package`` or a package name is one of the
+/// app's own packages, so one `dependencies:` array can hold all of them. Models store a
+/// ``DependencySerialization``.
+public protocol Dependency: ManifestValue where Serialization == DependencySerialization {}

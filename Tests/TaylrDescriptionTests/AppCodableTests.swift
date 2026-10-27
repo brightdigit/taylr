@@ -23,7 +23,8 @@ internal enum AppCodableTests {
     internal func decodesServerApp() throws {
       let app = try Self.decode(AppFixtures.serverAppJSON)
       #expect(app == AppFixtures.serverApp)
-      #expect(app.packages == .withServer(.server(framework: .hummingbird(routing: .openAPI))))
+      #expect(
+        app.packages == .withServer(server: .server(framework: .hummingbird(routing: .openAPI))))
       #expect(app.urls == .base("https://acme.example"))
     }
 

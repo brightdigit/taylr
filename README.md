@@ -1,4 +1,4 @@
-<img src=".github/assets/taylr-logo.svg" width="180" height="180" alt="taylr logo: a swift cut from pattern pieces">
+<img src=".github/assets/taylr-logo.svg" width="360" height="224" alt="taylr logo: a swift cut from pattern pieces">
 
 # taylr
 

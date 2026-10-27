@@ -29,18 +29,8 @@
 
 /// The framework a server package is built on, and how it routes requests.
 ///
-/// Pass one as the `framework` of ``Package/server(name:platforms:dependencies:framework:)``.
-public enum ServerFramework: Sendable, Codable, Equatable {
-  /// A [Hummingbird](https://hummingbird.codes) server.
-  /// - Parameter routing: How routes are written. Defaults to ``Routing-swift.enum/builtIn``.
-  case hummingbird(routing: Routing = .builtIn)
-
-  /// How a server's routes are written.
-  public enum Routing: String, Sendable, Codable, Equatable {
-    /// You write the routes with the framework's own router.
-    case builtIn
-
-    /// The API is described in `openapi.yaml` and its code is generated.
-    case openAPI
-  }
+/// Pass one, such as `.hummingbird(routing: .openAPI)`, as the `framework` of
+/// ``Package/server(name:platforms:dependencies:framework:)``. Models store a
+/// ``ServerFrameworkSerialization``.
+public protocol ServerFramework: ManifestValue where Serialization == ServerFrameworkSerialization {
 }
