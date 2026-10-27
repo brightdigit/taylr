@@ -197,7 +197,7 @@ internal struct PackageGraph {
 }
 
 extension Package {
-  /// The packages this one lists as ``Dependency/local(_:)``.
+  /// The packages this one lists as ``DependencySerialization/local(package:)``.
   fileprivate var localDependencyPackages: [Package] {
     dependencies.compactMap { dependency in
       guard case .local(let package) = dependency else {
