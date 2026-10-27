@@ -56,6 +56,11 @@ internal enum LicenseTests {
       #expect(row.license.requiresPerFileNotice == row.perFileNotice)
     }
 
+    @Test("Every license has its own SPDX identifier", arguments: License.allCases)
+    internal func hasSPDXIdentifier(license: License) {
+      #expect(license.spdxIdentifier != license.rawValue)
+    }
+
     @Test("The table covers every case once")
     internal func tableCoversAllCases() {
       #expect(Self.rows.map(\.license) == License.allCases)
