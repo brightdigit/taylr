@@ -87,7 +87,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   /// The server framework, or `nil` for a package that isn't a server.
   ///
   /// Only ``Package/server(name:platforms:dependencies:framework:)`` sets it.
-  public internal(set) var framework: ServerFramework?
+  public internal(set) var framework: ServerFrameworkSerialization?
 
   /// Creates a Swift package.
   ///
@@ -166,12 +166,12 @@ extension Package {
   public static func server(
     name: String? = nil,
     platforms: [Platform] = [.macOS()],
-    dependencies: [any DependencyConvertible] = [],
-    framework: ServerFramework = .hummingbird()
+    dependencies: [any Dependency] = [],
+    framework: any ServerFramework = .hummingbird()
   ) -> Package {
     var package = Package(name: name ?? "", platforms: platforms, dependencies: dependencies)
     package.name = name
-    package.framework = framework
+    package.framework = framework.serialization
     return package
   }
 }
