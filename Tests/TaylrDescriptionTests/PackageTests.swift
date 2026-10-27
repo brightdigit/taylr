@@ -153,13 +153,14 @@ internal enum PackageTests {
         dependencies: [models],
         framework: .hummingbird(routing: .openAPI)
       )
-      #expect(server.dependencies == [.local(models)])
+      #expect(server.dependencies == [.local(package: models)])
       #expect(server.framework == .hummingbird(routing: .openAPI))
     }
 
     @Test("A server takes dependencies by name")
     internal func dependenciesByName() {
-      #expect(Package.server(dependencies: ["AcmeKit"]).dependencies == [.local("AcmeKit")])
+      #expect(
+        Package.server(dependencies: ["AcmeKit"]).dependencies == [.local(package: "AcmeKit")])
     }
 
     @Test("The openAPI server round-trips")
