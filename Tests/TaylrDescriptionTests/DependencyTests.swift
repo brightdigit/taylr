@@ -7,30 +7,42 @@ import Testing
 internal enum DependencyTests {
   @Suite("Codable")
   internal struct CodableTests {
-    private static let cases: [Dependency] = [
-      .package(url: "https://github.com/apple/swift-collections", from: "1.1.0"),
-      .package(url: "https://github.com/apple/swift-log", exact: "1.6.1"),
-      .package(url: "https://github.com/acme/acme-design", branch: "main"),
-      .package(path: "../SharedCode"),
-      .local(Package(name: "AcmeModels", platforms: [.iOS()], license: .apache2)),
+    private static let cases: [DependencySerialization] = [
+      UpToNextMajorDependency.package(
+        url: "https://github.com/apple/swift-collections", from: "1.1.0"
+      )
+      .serialization,
+      ExactDependency.package(url: "https://github.com/apple/swift-log", exact: "1.6.1")
+        .serialization,
+      BranchDependency.package(url: "https://github.com/acme/acme-design", branch: "main")
+        .serialization,
+      PathDependency.package(path: "../SharedCode").serialization,
+      Package(name: "AcmeModels", platforms: [.iOS()], license: .apache2).serialization,
     ]
 
     @Test("Every case survives an encode and decode", arguments: cases)
-    internal func roundTrips(dependency: Dependency) throws {
+    internal func roundTrips(dependency: DependencySerialization) throws {
       let data = try JSONEncoder().encode(dependency)
-      #expect(try JSONDecoder().decode(Dependency.self, from: data) == dependency)
+      #expect(try JSONDecoder().decode(DependencySerialization.self, from: data) == dependency)
+      #expect(!String(decoding: data, as: UTF8.self).contains("_0"))
     }
 
     @Test("A local package keeps its other settings through an encode and decode")
     internal func localKeepsSettings() throws {
-      let local = Dependency.local(Package(name: "AcmeModels", gitLFS: true))
+      let local = Package(name: "AcmeModels", gitLFS: true).serialization
       let data = try JSONEncoder().encode(local)
-      let decoded = try JSONDecoder().decode(Dependency.self, from: data)
+      let decoded = try JSONDecoder().decode(DependencySerialization.self, from: data)
       guard case .local(let package) = decoded else {
         Issue.record("Expected a local dependency")
         return
       }
       #expect(package.gitLFS)
+    }
+
+    @Test("A path dependency encodes under a labeled key")
+    internal func pathEncodesLabeled() throws {
+      let data = try JSONEncoder().encode(PathDependency(path: "../A").serialization)
+      #expect(String(decoding: data, as: UTF8.self) == #"{"path":{"path":"..\/A"}}"#)
     }
   }
 
@@ -38,16 +50,22 @@ internal enum DependencyTests {
   internal struct CaseTests {
     @Test("The package statics build the matching cases")
     internal func staticsBuildCases() {
+      let url = "https://acme.example/a"
       #expect(
-        Dependency.package(url: "https://acme.example/a", from: "1.0.0")
-          == .upToNextMajor(url: "https://acme.example/a", from: "1.0.0"))
+        UpToNextMajorDependency.package(url: url, from: "1.0.0").serialization
+          == .upToNextMajor(url: url, from: "1.0.0"))
       #expect(
-        Dependency.package(url: "https://acme.example/a", exact: "1.0.0")
-          == .exact(url: "https://acme.example/a", version: "1.0.0"))
+        ExactDependency.package(url: url, exact: "1.0.0").serialization
+          == .exact(url: url, version: "1.0.0"))
       #expect(
-        Dependency.package(url: "https://acme.example/a", branch: "main")
-          == .branch(url: "https://acme.example/a", name: "main"))
-      #expect(Dependency.package(path: "../A") == .path("../A"))
+        BranchDependency.package(url: url, branch: "main").serialization
+          == .branch(url: url, name: "main"))
+      #expect(PathDependency.package(path: "../A").serialization == .path(path: "../A"))
+    }
+
+    @Test("A string and its package serialize equally")
+    internal func stringMatchesPackage() {
+      #expect(String.serializesEqually("AcmeKit", Package(name: "AcmeKit")))
     }
   }
 
@@ -58,13 +76,13 @@ internal enum DependencyTests {
     @Test("A string literal becomes a local dependency")
     internal func stringBecomesLocal() {
       let package = Package(name: "AcmeKit", dependencies: ["AcmeUtilities"])
-      #expect(package.dependencies == [.local("AcmeUtilities")])
+      #expect(package.dependencies == [.local(package: "AcmeUtilities")])
     }
 
     @Test("A Package value becomes a local dependency")
     internal func packageBecomesLocal() {
       let package = Package(name: "AcmeKit", dependencies: [Self.models])
-      #expect(package.dependencies == [.local(Self.models)])
+      #expect(package.dependencies == [.local(package: Self.models)])
     }
 
     @Test("A local dependency keeps the whole package")
@@ -94,12 +112,12 @@ internal enum DependencyTests {
       )
       #expect(
         kit.dependencies == [
-          .local(models),
-          .local("AcmeUtilities"),
+          .local(package: models),
+          .local(package: "AcmeUtilities"),
           .upToNextMajor(url: "https://github.com/apple/swift-collections", from: "1.1.0"),
           .exact(url: "https://github.com/apple/swift-log", version: "1.6.1"),
           .branch(url: "https://github.com/acme/acme-design", name: "main"),
-          .path("../SharedCode"),
+          .path(path: "../SharedCode"),
         ])
     }
 
