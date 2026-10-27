@@ -51,8 +51,8 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   public var swiftVersion: String?
 
   /// The packages this one uses: third-party packages, and inside an app, the app's other
-  /// packages (``Dependency/local(_:)``).
-  public var dependencies: [Dependency]
+  /// packages (``DependencySerialization/local(package:)``).
+  public var dependencies: [DependencySerialization]
 
   /// The taylr version the package was created with. Ignored inside an app.
   public var taylrVersion: String
@@ -64,7 +64,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   public var github: GitHub?
 
   /// How CI runs, or `nil` for no CI.
-  public var ci: CI?  // swiftlint:disable:this identifier_name
+  public var ci: CISerialization?  // swiftlint:disable:this identifier_name
 
   /// Whether to add dev containers in `.devcontainer/`.
   public var devcontainer: Bool
@@ -73,7 +73,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   public var lint: [LintTool]
 
   /// The file header template, or `nil` for none.
-  public var header: Header?
+  public var header: HeaderSerialization?
 
   /// The license.
   public var license: License
@@ -87,7 +87,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   /// The server framework, or `nil` for a package that isn't a server.
   ///
   /// Only ``Package/server(name:platforms:dependencies:framework:)`` sets it.
-  public internal(set) var framework: ServerFramework?
+  public internal(set) var framework: ServerFrameworkSerialization?
 
   /// Creates a Swift package.
   ///
@@ -98,7 +98,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   ///     the selected Xcode.
   ///   - dependencies: The packages this one uses: ``Dependency`` values such as
   ///     `.package(url:from:)`, plus ``Package`` values and package names, which become
-  ///     ``Dependency/local(_:)``. Defaults to none.
+  ///     ``DependencySerialization/local(package:)``. Defaults to none.
   ///   - taylrVersion: The taylr version the package was created with. Defaults to `"1.0.0"`.
   ///   - includeNightly: Also test the next Swift's nightly build. Defaults to `false`.
   ///   - github: The GitHub repository. Defaults to `nil`.
@@ -113,15 +113,15 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
     name: String,
     platforms: [Platform] = [],
     swiftVersion: String? = nil,
-    dependencies: [any DependencyConvertible] = [],
+    dependencies: [any Dependency] = [],
     taylrVersion: String = "1.0.0",
     includeNightly: Bool = false,
     github: GitHub? = nil,
     // swiftlint:disable:next identifier_name
-    ci: CI? = .githubActions(workflows: [.ci, .cleanup, .claude]),
+    ci: (any CI)? = .githubActions(workflows: [.ci, .cleanup, .claude]),
     devcontainer: Bool = true,
     lint: [LintTool] = [.swiftLint, .swiftFormat],
-    header: Header? = .file("Scripts/header.mustache"),
+    header: (any Header)? = .file("Scripts/header.mustache"),
     license: License = .mit,
     gitLFS: Bool = false,
     agents: [Agent] = [.claudeCode]
@@ -129,14 +129,14 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
     self.name = name
     self.platforms = platforms
     self.swiftVersion = swiftVersion
-    self.dependencies = dependencies.map(\.dependency)
+    self.dependencies = dependencies.map { $0.serialization }
     self.taylrVersion = taylrVersion
     self.includeNightly = includeNightly
     self.github = github
-    self.ci = ci
+    self.ci = ci?.serialization
     self.devcontainer = devcontainer
     self.lint = lint
-    self.header = header
+    self.header = header?.serialization
     self.license = license
     self.gitLFS = gitLFS
     self.agents = agents
@@ -166,12 +166,12 @@ extension Package {
   public static func server(
     name: String? = nil,
     platforms: [Platform] = [.macOS()],
-    dependencies: [any DependencyConvertible] = [],
-    framework: ServerFramework = .hummingbird()
+    dependencies: [any Dependency] = [],
+    framework: any ServerFramework = .hummingbird()
   ) -> Package {
     var package = Package(name: name ?? "", platforms: platforms, dependencies: dependencies)
     package.name = name
-    package.framework = framework
+    package.framework = framework.serialization
     return package
   }
 }
