@@ -21,7 +21,7 @@ internal enum PackageTests {
       #expect(package.github == nil)
       #expect(package.devcontainer)
       #expect(package.lint == [.swiftLint, .swiftFormat])
-      #expect(package.header == .file("Scripts/header.mustache"))
+      #expect(package.header == .file(path: "Scripts/header.mustache"))
       #expect(package.license == .mit)
       #expect(package.gitLFS == false)
       #expect(package.agents == [.claudeCode])
@@ -29,7 +29,9 @@ internal enum PackageTests {
 
     @Test("CI defaults to GitHub Actions with the ci, cleanup and claude workflows")
     internal func ciDefaultsToPackageWorkflows() {
-      #expect(Self.package.ci == .githubActions(workflows: [.ci, .cleanup, .claude]))
+      #expect(
+        Self.package.ci
+          == GitHubActions.githubActions(workflows: [.ci, .cleanup, .claude]).serialization)
     }
 
     @Test("ci: nil means no CI")
@@ -102,7 +104,9 @@ internal enum PackageTests {
       #expect(decoded.taylrVersion == "1.2.3")
       #expect(decoded.includeNightly)
       #expect(decoded.github == .init(repository: "acme/AcmeCharts"))
-      #expect(decoded.ci == .githubActions(runners: .githubHosted, workflows: [.ci]))
+      #expect(
+        decoded.ci
+          == GitHubActions.githubActions(runners: .githubHosted, workflows: [.ci]).serialization)
       #expect(decoded.devcontainer == false)
       #expect(decoded.lint == [.swiftLint, .periphery])
       #expect(decoded.header == nil)
@@ -115,8 +119,10 @@ internal enum PackageTests {
     internal func roundTripsDefaults() throws {
       let data = try JSONEncoder().encode(Package(name: "AcmeKit"))
       let decoded = try JSONDecoder().decode(Package.self, from: data)
-      #expect(decoded.ci == .githubActions(workflows: [.ci, .cleanup, .claude]))
-      #expect(decoded.header == .file("Scripts/header.mustache"))
+      #expect(
+        decoded.ci
+          == GitHubActions.githubActions(workflows: [.ci, .cleanup, .claude]).serialization)
+      #expect(decoded.header == .file(path: "Scripts/header.mustache"))
       #expect(decoded.lint == [.swiftLint, .swiftFormat])
       #expect(decoded.agents == [.claudeCode])
       #expect(decoded.license == .mit)
