@@ -31,7 +31,7 @@
 ///
 /// Listing a tool in a manifest's `lint` array installs it and gives it a configuration file.
 /// A tool left out of the array is not installed and has no configuration file.
-public enum LintTool: String, Sendable, Codable, Equatable {
+public enum LintTool: String, CaseIterable, Sendable, Codable, Equatable {
   /// Style and conventions, with SwiftLint.
   case swiftLint
   /// Formatting, with Apple's swift-format.
@@ -39,13 +39,19 @@ public enum LintTool: String, Sendable, Codable, Equatable {
   /// Unused code, with Periphery.
   case periphery
 
+  private static let configurationFiles: [LintTool: String] = [
+    .swiftLint: ".swiftlint.yml",
+    .swiftFormat: ".swift-format",
+    .periphery: ".periphery.yml",
+  ]
+
   /// The name of the file that configures the tool: `.swiftlint.yml`, `.swift-format` or
   /// `.periphery.yml`.
   public var configurationFile: String {
-    switch self {
-    case .swiftLint: ".swiftlint.yml"
-    case .swiftFormat: ".swift-format"
-    case .periphery: ".periphery.yml"
+    guard let file = Self.configurationFiles[self] else {
+      assertionFailure("No configuration file for \(self)")
+      return ".\(rawValue)"
     }
+    return file
   }
 }

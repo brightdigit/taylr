@@ -27,28 +27,11 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-/// The packages an app is made of, and what each one depends on.
+/// A layout of an app's packages spelled out in the manifest: the client, the server and any
+/// others.
 ///
-/// Use ``appOnly`` or ``withServer(_:)``, or lay the packages out yourself with
-/// ``init(client:server:others:)``: give the client and the server, and taylr finds the rest by
-/// following their dependencies. Call ``resolvedPackages(appName:)`` for the whole graph.
-public enum Packages: Sendable, Codable, Equatable {
-  /// `<App>App`, which depends on `<App>Kit`.
-  case appOnly
-
-  /// `<App>App` and the server, which both depend on `<App>Kit`.
-  ///
-  /// A server without a name becomes `<App>Server`. Dependencies the server already lists are
-  /// kept.
-  /// - Parameter server: The server package, made with
-  ///   ``Package/server(name:platforms:dependencies:framework:)``.
-  case withServer(Package)
-
-  /// A layout spelled out in the manifest.
-  ///
-  /// Prefer ``init(client:server:others:)``, which reads the same way as the reference.
-  case custom(client: Package, server: Package?, others: [Package])
-
+/// Give the client and the server, and taylr finds the rest by following their dependencies.
+public struct Packages: PackageLayout, Codable, Equatable {
   /// What is wrong with a package graph.
   ///
   /// ``resolvedPackages(appName:)`` throws the first one it finds, in this order: the server and
@@ -82,6 +65,18 @@ public enum Packages: Sendable, Codable, Equatable {
     case unusedOthersEntry(name: String)
   }
 
+  /// The app package: the one the app targets link.
+  public var client: Package
+  /// The server package, or `nil` for none.
+  public var server: Package?
+  /// Packages nothing depends on yet.
+  public var others: [Package]
+
+  /// The layout as ``PackageLayoutSerialization/custom(client:server:others:)``.
+  public var serialization: PackageLayoutSerialization {
+    .custom(client: client, server: server, others: others)
+  }
+
   /// Creates a layout from the client and the server; the packages they depend on follow.
   ///
   /// - Parameters:
@@ -90,42 +85,9 @@ public enum Packages: Sendable, Codable, Equatable {
   ///   - others: Packages nothing depends on yet, so taylr can't find them by following
   ///     dependencies. Defaults to none.
   public init(client: Package, server: Package? = nil, others: [Package] = []) {
-    self = .custom(client: client, server: server, others: others)
+    self.client = client
+    self.server = server
+    self.others = others
   }
 
-  /// Every package of the app, with its dependencies.
-  ///
-  /// Packages are found breadth-first: the client and the packages it depends on, level by level,
-  /// then the server and what is new in its dependencies, then `others`. Each package appears
-  /// once. A name and a ``Package`` with that name are the same package; when one of them has
-  /// settings and the other is only a name, the one with settings is kept.
-  ///
-  /// - Parameter appName: The app's name, such as `"Acme"`. It names the presets `AcmeApp`,
-  ///   `AcmeKit` and `AcmeServer`.
-  /// - Returns: The packages, client first.
-  /// - Throws: A ``GraphError`` for a graph that can't be built.
-  public func resolvedPackages(appName: String) throws(GraphError) -> [Package] {
-    let kit = Package(name: "\(appName)Kit")
-    let app = Package(name: "\(appName)App", dependencies: [kit])
-    switch self {
-    case .appOnly:
-      var graph = PackageGraph(appName: appName, client: app, server: nil, others: [])
-      return try graph.resolve()
-    case .withServer(var server):
-      let usesKit = server.dependencies.contains { dependency in
-        guard case .local(let package) = dependency else {
-          return false
-        }
-        return package.name == kit.name
-      }
-      if !usesKit {
-        server.dependencies.append(kit.dependency)
-      }
-      var graph = PackageGraph(appName: appName, client: app, server: server, others: [])
-      return try graph.resolve()
-    case .custom(let client, let server, let others):
-      var graph = PackageGraph(appName: appName, client: client, server: server, others: others)
-      return try graph.resolve()
-    }
-  }
 }
