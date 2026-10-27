@@ -96,7 +96,7 @@ The CLI gathers answers, ScaffoldKit writes the project, TaylrDescription reads 
 | File kind | Strategy | Status |
 | --- | --- | --- |
 | Swift sources, `Package.swift`, `Project.swift`, `Manifest.swift`, tests | SyntaxKit generators | Decided |
-| GitHub workflows (`app.yml`, `package.yml`, metadata, session, cleanup, claude) | Swift `Workflow` model → YAML encoder; `ci.matrix`, runners and `validate` rule 9 all read the same model | Decided |
+| GitHub workflows (`integration.yml`, metadata, session, cleanup, claude) | Swift `Workflow` model → YAML encoder; `ci.matrix`, runners and `validate` rule 9 all read the same model | Decided |
 | `.swiftlint.yml`, `.swift-format`, `.periphery.yml`, `openapi.yaml`, `app_privacy_details.json`, `devcontainer.json` | Codable models → YAML/JSON | Decided |
 | `.mise.toml` | Codable model → TOML; varies with Ruby, uv, lint tools, openapi-generator, Swift versions | Decided |
 | `Fastfile`, `Matchfile`, `Gemfile` | Fixed Ruby resources; per-answer values go through a generated `Appfile` and `.env`; the `Fastfile` loops over platforms | To confirm |
@@ -293,7 +293,7 @@ Plus the shared settings below, with `license` defaulting to `.proprietary` and 
 | `server` | `Packages/<Name>Server`, `Dockerfile`, `openapi.yaml` with `.openAPI`, swift-openapi-generator in `.mise.toml` |
 | `localizations` | A String Catalog entry and Tuist known region per language, `fastlane/metadata/<locale>/` per language |
 
-**Workflows.** `.ci` = `app.yml` (`package.yml`): builds, lints in strict mode, tests, runs `validate`, uploads `main` to TestFlight (apps). `.appStoreMetadata` = `app-store-metadata.yml`, manual. `.appStoreSession` = `asc-session.yml`, weekly session check. `.cleanup` = `cleanup-caches.yml`, `cleanup-pr-caches.yml`. `.claude` = `claude.yml`, `claude-code-review.yml`. macOS jobs run on the manifest's runners; Linux, Windows and Android always on GitHub-hosted runners.
+**Workflows.** `.ci` = `integration.yml` (apps and packages): builds, lints in strict mode, tests, runs `validate`, uploads `main` to TestFlight (apps). `.appStoreMetadata` = `app-store-metadata.yml`, manual. `.appStoreSession` = `asc-session.yml`, weekly session check. `.cleanup` = `cleanup-caches.yml`, `cleanup-pr-caches.yml`. `.claude` = `claude.yml`, `claude-code-review.yml`. macOS jobs run on the manifest's runners; Linux, Windows and Android always on GitHub-hosted runners.
 
 **Build matrix.** `.ci` runs on non-draft pull requests, pushes to `main` and version branches (`1.2.0`), and manual dispatch. `feature` (PR into a non-main branch): newest Swift on Ubuntu 24.04 plus macOS per platform. `version` and `main`: every Swift version from `swiftVersion` to newest on Ubuntu 24.04 and 22.04, Wasm, Wasm Embedded, Windows, Android, macOS per platform, plus nightly with `includeNightly`. Every package builds on each; an app's packages too unless `crossPlatform: false`.
 
