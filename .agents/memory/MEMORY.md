@@ -13,3 +13,4 @@ This directory replaces any native or global memory feature for this project (Cl
 ## Memories
 
 - [MiseKit TOML decision](misekit-toml-decision.md) — tabled: how MiseKit decodes TOML; ask before step 2.2 round-trip work
+- [Profile and CI as protocols](profile-ci-protocols.md) — ProfileSource/ProfileReference/CustomProfile, CI/GitHubActions; pending `.custom` docs edit; key-path crash
