@@ -58,6 +58,9 @@ public struct App: Sendable, Codable, Equatable {
   public var appStoreConnect: AppStoreConnect?
 
   /// How App Store screenshots are captured, or `nil` for none.
+  ///
+  /// Screenshots need fastlane, so the initializers store `nil` here when ``appStoreConnect`` is
+  /// `nil`, whatever was passed.
   public var screenshots: Screenshots?
 
   /// Where the app ships.
@@ -175,7 +178,7 @@ public struct App: Sendable, Codable, Equatable {
     self.urls = urls
     self.packages = packages.serialization
     self.appStoreConnect = appStoreConnect
-    self.screenshots = screenshots
+    self.screenshots = appStoreConnect == nil ? nil : screenshots
     self.distribution = distribution
     self.pressKit = pressKit
     self.localizations = localizations
@@ -192,5 +195,23 @@ public struct App: Sendable, Codable, Equatable {
     self.license = license
     self.gitLFS = gitLFS
     self.agents = agents
+  }
+
+  /// The app's bundle ID.
+  ///
+  /// - Parameter prefix: The profile's bundle ID prefix, such as `com.acmecorp`.
+  /// - Returns: ``bundleID`` when it is set, otherwise the prefix and the name:
+  ///   `com.acmecorp.Acme`.
+  public func resolvedBundleID(prefix: String) -> String {
+    bundleID ?? "\(prefix).\(name)"
+  }
+
+  /// The app's app group.
+  ///
+  /// - Parameter prefix: The profile's bundle ID prefix, such as `com.acmecorp`.
+  /// - Returns: ``appGroupID`` when it is set, otherwise `group.` followed by the bundle ID
+  ///   (see ``resolvedBundleID(prefix:)``): `group.com.acmecorp.Acme`.
+  public func resolvedAppGroupID(prefix: String) -> String {
+    appGroupID ?? "group.\(resolvedBundleID(prefix: prefix))"
   }
 }
