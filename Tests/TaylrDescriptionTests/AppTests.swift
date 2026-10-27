@@ -110,8 +110,8 @@ internal enum AppTests {
     internal func inlineProfileAndCI() {
       let manifest = App(
         name: "Acme",
-        profile: .custom(
-          organization: "Client X Inc",
+        profile: .organization(
+          "Client X Inc",
           bundleIDPrefix: "com.clientx",
           apple: .init(teamID: "ABCDE12345", ascTeamID: "7654321"),
           signing: .init(storage: .git("git@github.com:clientx/certs.git")),
