@@ -29,7 +29,7 @@
 
 /// A profile spelled out in the manifest, so the app doesn't depend on anyone's `~/.taylr/`.
 ///
-/// Spell it `.custom(organization: …)`.
+/// Spell it `.organization("Client X Inc", …)`.
 public struct CustomProfile: ProfileSource, Codable, Equatable {
   /// The organization's name, used in bundle IDs, the license and file headers.
   public var organization: String
@@ -88,10 +88,10 @@ public struct CustomProfile: ProfileSource, Codable, Equatable {
 }
 
 extension ProfileSource where Self == CustomProfile {
-  /// Spells a profile out in the manifest.
+  /// Spells a profile out in the manifest, for an organization.
   ///
   /// - Parameters:
-  ///   - organization: The organization's name, used in bundle IDs, the license and file headers.
+  ///   - name: The organization's name, used in bundle IDs, the license and file headers.
   ///   - bundleIDPrefix: The start of the app's bundle ID. When `nil`, it is `com.` and the
   ///     organization's name, lowercased, without spaces or punctuation.
   ///   - apple: The Apple team. `nil` leaves it to the user's `config.yml`.
@@ -100,8 +100,8 @@ extension ProfileSource where Self == CustomProfile {
   ///     account.
   ///   - secrets: Where the secrets come from. Defaults to `.team()`, with no team.
   /// - Returns: The profile.
-  public static func custom(
-    organization: String,
+  public static func organization(
+    _ name: String,
     bundleIDPrefix: String? = nil,
     apple: CustomProfile.Apple? = nil,
     signing: CustomProfile.Signing? = nil,
@@ -109,7 +109,7 @@ extension ProfileSource where Self == CustomProfile {
     secrets: any CustomProfile.Secrets = .team()
   ) -> CustomProfile {
     CustomProfile(
-      organization: organization,
+      organization: name,
       bundleIDPrefix: bundleIDPrefix,
       apple: apple,
       signing: signing,

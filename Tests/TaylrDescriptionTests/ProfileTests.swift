@@ -37,8 +37,8 @@ internal enum ProfileTests {
   @Suite("Reference example")
   internal struct ReferenceTests {
     private static let named: any ProfileSource = .named("client-x")
-    private static let custom: any ProfileSource = .custom(
-      organization: "Client X Inc",
+    private static let custom: any ProfileSource = .organization(
+      "Client X Inc",
       bundleIDPrefix: "com.clientx",
       apple: .init(teamID: "FGHIJ67890", ascTeamID: "7654321"),
       signing: .init(storage: .git("git@github.com:clientx/certs.git")),
@@ -96,8 +96,8 @@ internal enum ProfileTests {
     internal func decodesCustom() throws {
       let data = Data(Self.customJSON.utf8)
       let profile = try JSONDecoder().decode(ProfileSerialization.self, from: data)
-      let expected = CustomProfile.custom(
-        organization: "Acme Corp",
+      let expected = CustomProfile.organization(
+        "Acme Corp",
         bundleIDPrefix: "com.acmecorp",
         apple: .init(teamID: "ABCDE12345"),
         signing: .init(storage: .s3(bucket: "acme-certs", region: "us-east-1")),
