@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import TaylrDescription
@@ -8,7 +9,7 @@ internal enum AppTests {
   internal struct InitTests {
     @Test("Everything but name, profile and platforms takes its documented default")
     internal func defaults() {
-      let app = AppTests.minimal
+      let app = AppFixtures.minimal
       #expect(app.name == "Acme")
       #expect(app.profile == .named("default"))
       #expect(app.platforms == [.iOS()])
@@ -132,9 +133,75 @@ internal enum AppTests {
     }
   }
 
-  private static let minimal = App(
-    name: "Acme",
-    profile: .named("default"),
-    platforms: [.iOS()]
-  )
+  @Suite("Resolved IDs")
+  internal struct ResolvedIDTests {
+    @Test("The prefix and the name make the bundle ID and the app group")
+    internal func derivedFromPrefix() {
+      let app = AppFixtures.minimal
+      #expect(app.resolvedBundleID(prefix: "com.acmecorp") == "com.acmecorp.Acme")
+      #expect(app.resolvedAppGroupID(prefix: "com.acmecorp") == "group.com.acmecorp.Acme")
+    }
+
+    @Test("An explicit bundle ID wins over the prefix, and the app group follows it")
+    internal func explicitBundleID() {
+      var app = AppFixtures.minimal
+      app.bundleID = "com.acme.app"
+      #expect(app.resolvedBundleID(prefix: "com.acmecorp") == "com.acme.app")
+      #expect(app.resolvedAppGroupID(prefix: "com.acmecorp") == "group.com.acme.app")
+    }
+
+    @Test("An explicit app group wins over the bundle ID")
+    internal func explicitAppGroup() {
+      var app = AppFixtures.minimal
+      app.bundleID = "com.acme.app"
+      app.appGroupID = "group.shared.acme"
+      #expect(app.resolvedBundleID(prefix: "com.acmecorp") == "com.acme.app")
+      #expect(app.resolvedAppGroupID(prefix: "com.acmecorp") == "group.shared.acme")
+    }
+  }
+
+  @Suite("Screenshots rule")
+  internal struct ScreenshotsRuleTests {
+    @Test("Screenshots are nil when appStoreConnect is nil, even if passed")
+    internal func nilWithoutAppStoreConnect() {
+      let app = App(
+        name: "Acme",
+        profile: .named("default"),
+        platforms: [.iOS()],
+        appStoreConnect: nil,
+        screenshots: .fastlaneSnapshot
+      )
+      #expect(app.screenshots == nil)
+    }
+
+    @Test("The server initializer applies the same rule")
+    internal func nilWithServer() {
+      let app = App(
+        name: "Acme",
+        profile: .named("default"),
+        platforms: [.iOS()],
+        server: .server(),
+        appStoreConnect: nil,
+        screenshots: .fastlaneSnapshot
+      )
+      #expect(app.screenshots == nil)
+    }
+
+    @Test("Screenshots can be turned off while appStoreConnect stays on")
+    internal func screenshotsOffAlone() {
+      let app = App(
+        name: "Acme",
+        profile: .named("default"),
+        platforms: [.iOS()],
+        screenshots: nil
+      )
+      #expect(app.appStoreConnect == .fastlane)
+      #expect(app.screenshots == nil)
+    }
+
+    @Test("With appStoreConnect on, screenshots are kept")
+    internal func keptWithAppStoreConnect() {
+      #expect(AppFixtures.minimal.screenshots == .fastlaneSnapshot)
+    }
+  }
 }
