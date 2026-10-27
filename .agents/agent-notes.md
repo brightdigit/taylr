@@ -14,3 +14,4 @@ How to use this file:
 - Always expose `TaylrKit` as a library product of the root package, next to `TaylrDescription` (not only as an internal target).
 - Each GitHub issue must be small enough for one PR. A plan step too big for one PR becomes a parent issue with sub-issues; one milestone per plan phase (2026-10-26).
 - Never state which macOS version taylr itself runs on in READMEs or docs; say "macOS" only. Package.swift platforms are unaffected (2026-10-26).
+- `swift-docc-plugin` is an approved root dependency, for `swift package generate-documentation` only; no target links it, so packages that depend on taylr never resolve it (2026-10-27).
