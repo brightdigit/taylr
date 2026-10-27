@@ -39,6 +39,9 @@ let package = Package(
     ),
     // Pinned exactly, as the spec asks for the prompt library.
     .package(url: "https://github.com/tuist/Noora.git", exact: "0.57.6"),
+    // Only for `swift package generate-documentation`; no target links it, so
+    // packages that depend on taylr never resolve it.
+    .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.4.0"),
   ],
   targets: [
     // The only module Manifest.swift imports: Foundation only, no dependencies.
