@@ -41,7 +41,7 @@ internal enum AppFixtures {
   internal static let appSettingsJSON = """
     "agents": ["claudeCode"],
     "appStoreConnect": "fastlane",
-    "ci": {"githubActions": {
+    "ci": {"githubActions": {"configuration": {
       "matrix": {
         "feature": {"exclude": [], "include": []},
         "main": {"exclude": [], "include": []},
@@ -50,20 +50,20 @@ internal enum AppFixtures {
       "runners": {"selfHosted": {"labels": ["self-hosted", "macOS"],
                                  "xcodes": ["/Applications/Xcode.app"]}},
       "workflows": ["ci", "appStoreMetadata", "appStoreSession", "cleanup", "claude"]
-    }},
+    }}},
     "crossPlatform": true,
     "devcontainer": true,
     "distribution": ["appStore"],
     "generator": "tuist",
     "gitLFS": true,
-    "header": {"file": {"_0": "Scripts/header.mustache"}},
+    "header": {"file": {"path": "Scripts/header.mustache"}},
     "includeNightly": false,
     "license": "proprietary",
     "lint": ["swiftLint", "swiftFormat"],
     "localizations": ["en-US"],
     "name": "Acme",
     "pressKit": "uv",
-    "profile": {"named": {"_0": "default"}},
+    "profile": {"reference": {"name": "default"}},
     "screenshots": "fastlaneSnapshot",
     "taylrVersion": "1.0.0"
     """
@@ -72,7 +72,7 @@ internal enum AppFixtures {
   /// members.
   internal static let packageSettingsJSON = """
     "agents": ["claudeCode"],
-    "ci": {"githubActions": {
+    "ci": {"githubActions": {"configuration": {
       "matrix": {
         "feature": {"exclude": [], "include": []},
         "main": {"exclude": [], "include": []},
@@ -81,10 +81,10 @@ internal enum AppFixtures {
       "runners": {"selfHosted": {"labels": ["self-hosted", "macOS"],
                                  "xcodes": ["/Applications/Xcode.app"]}},
       "workflows": ["ci", "cleanup", "claude"]
-    }},
+    }}},
     "devcontainer": true,
     "gitLFS": false,
-    "header": {"file": {"_0": "Scripts/header.mustache"}},
+    "header": {"file": {"path": "Scripts/header.mustache"}},
     "includeNightly": false,
     "license": "mit",
     "lint": ["swiftLint", "swiftFormat"],
@@ -94,7 +94,7 @@ internal enum AppFixtures {
   internal static let serverAppJSON = """
     {
       \(appSettingsJSON),
-      "packages": {"withServer": {"_0": {
+      "packages": {"withServer": {"server": {
         \(packageSettingsJSON),
         "dependencies": [],
         "framework": {"hummingbird": {"routing": "openAPI"}},
@@ -126,9 +126,9 @@ internal enum AppFixtures {
       "packages": {"custom": {
         "client": {
           \(packageSettingsJSON),
-          "dependencies": [{"local": {"_0": {
+          "dependencies": [{"local": {"package": {
             \(packageSettingsJSON),
-            "dependencies": [{"local": {"_0": {
+            "dependencies": [{"local": {"package": {
               \(packageSettingsJSON),
               "dependencies": [],
               "name": "AcmeModels",
@@ -143,7 +143,7 @@ internal enum AppFixtures {
         "others": [],
         "server": {
           \(packageSettingsJSON),
-          "dependencies": [{"local": {"_0": {
+          "dependencies": [{"local": {"package": {
             \(packageSettingsJSON),
             "dependencies": [],
             "name": "AcmeModels",

@@ -32,7 +32,7 @@ extension App {
   ///
   /// This takes `server` where the other initializer takes `packages`, so passing both doesn't
   /// compile. The app's packages become
-  /// ``Packages/withServer(_:)``. Every other parameter is the same, with the same defaults.
+  /// ``PackageLayout/withServer(_:)``. Every other parameter is the same, with the same defaults.
   ///
   /// - Parameters:
   ///   - name: The app's name.
@@ -64,7 +64,7 @@ extension App {
   ///   - agents: The AI coding agents to set up. Defaults to `[.claudeCode]`.
   public init(
     name: String,
-    profile: Profile,
+    profile: any ProfileSource,
     platforms: [Platform],
     bundleID: String? = nil,
     appGroupID: String? = nil,
@@ -80,12 +80,12 @@ extension App {
     taylrVersion: String = "1.0.0",
     github: GitHub? = nil,
     // swiftlint:disable:next identifier_name
-    ci: CI? = .githubActions(),
+    ci: (any CI)? = .githubActions(),
     swiftVersion: String? = nil,
     includeNightly: Bool = false,
     devcontainer: Bool = true,
     lint: [LintTool] = [.swiftLint, .swiftFormat],
-    header: Header? = .file("Scripts/header.mustache"),
+    header: (any Header)? = .file("Scripts/header.mustache"),
     license: License = .proprietary,
     gitLFS: Bool = true,
     agents: [Agent] = [.claudeCode]
