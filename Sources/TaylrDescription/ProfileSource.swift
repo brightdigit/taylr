@@ -30,6 +30,6 @@
 /// The Apple, signing, GitHub and secrets settings an app is built with.
 ///
 /// Name a profile kept in `~/.taylr/profiles/` with ``named(_:)``, or spell one out with
-/// ``custom(organization:bundleIDPrefix:apple:signing:github:secrets:)`` so the app doesn't depend
+/// ``organization(_:bundleIDPrefix:apple:signing:github:secrets:)`` so the app doesn't depend
 /// on anyone's `~/.taylr/`. Models store it as a ``ProfileSerialization``.
 public protocol ProfileSource: ManifestValue where Serialization == ProfileSerialization {}
