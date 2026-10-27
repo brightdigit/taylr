@@ -61,7 +61,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   public var github: GitHub?
 
   /// How CI runs, or `nil` for no CI.
-  public var ci: CI?  // swiftlint:disable:this identifier_name
+  public var ci: CISerialization?  // swiftlint:disable:this identifier_name
 
   /// Whether to add dev containers in `.devcontainer/`.
   public var devcontainer: Bool
@@ -70,7 +70,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   public var lint: [LintTool]
 
   /// The file header template, or `nil` for none.
-  public var header: Header?
+  public var header: HeaderSerialization?
 
   /// The license.
   public var license: License
@@ -110,10 +110,10 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
     includeNightly: Bool = false,
     github: GitHub? = nil,
     // swiftlint:disable:next identifier_name
-    ci: CI? = .githubActions(workflows: [.ci, .cleanup, .claude]),
+    ci: (any CI)? = .githubActions(workflows: [.ci, .cleanup, .claude]),
     devcontainer: Bool = true,
     lint: [LintTool] = [.swiftLint, .swiftFormat],
-    header: Header? = .file("Scripts/header.mustache"),
+    header: (any Header)? = .file("Scripts/header.mustache"),
     license: License = .mit,
     gitLFS: Bool = false,
     agents: [Agent] = [.claudeCode]
@@ -125,10 +125,10 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
     self.taylrVersion = taylrVersion
     self.includeNightly = includeNightly
     self.github = github
-    self.ci = ci
+    self.ci = ci?.serialization
     self.devcontainer = devcontainer
     self.lint = lint
-    self.header = header
+    self.header = header?.serialization
     self.license = license
     self.gitLFS = gitLFS
     self.agents = agents

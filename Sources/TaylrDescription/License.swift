@@ -61,50 +61,57 @@ public enum License: String, CaseIterable, Sendable, Codable, Equatable {
   /// The Unlicense.
   case unlicense
 
+  private static let spdxIdentifiers: [License: String] = [
+    .proprietary: "LicenseRef-Proprietary",
+    .mit: "MIT",
+    .apache2: "Apache-2.0",
+    .bsd2: "BSD-2-Clause",
+    .bsd3: "BSD-3-Clause",
+    .boost: "BSL-1.0",
+    .mpl2: "MPL-2.0",
+    .epl2: "EPL-2.0",
+    .gpl2: "GPL-2.0",
+    .gpl3: "GPL-3.0",
+    .lgpl21: "LGPL-2.1",
+    .agpl3: "AGPL-3.0",
+    .cc0: "CC0-1.0",
+    .unlicense: "Unlicense",
+  ]
+
+  private static let fileNames: [License: String] = [
+    .gpl3: "COPYING",
+    .unlicense: "UNLICENSE",
+  ]
+
+  private static let withoutCopyrightLine: Set<License> = [.cc0, .unlicense]
+
+  private static let withPerFileNotice: Set<License> = [
+    .apache2, .gpl2, .gpl3, .lgpl21, .agpl3, .mpl2, .epl2,
+  ]
+
   /// The license's SPDX identifier, such as `Apache-2.0`.
   public var spdxIdentifier: String {
-    switch self {
-    case .proprietary: "LicenseRef-Proprietary"
-    case .mit: "MIT"
-    case .apache2: "Apache-2.0"
-    case .bsd2: "BSD-2-Clause"
-    case .bsd3: "BSD-3-Clause"
-    case .boost: "BSL-1.0"
-    case .mpl2: "MPL-2.0"
-    case .epl2: "EPL-2.0"
-    case .gpl2: "GPL-2.0"
-    case .gpl3: "GPL-3.0"
-    case .lgpl21: "LGPL-2.1"
-    case .agpl3: "AGPL-3.0"
-    case .cc0: "CC0-1.0"
-    case .unlicense: "Unlicense"
+    guard let identifier = Self.spdxIdentifiers[self] else {
+      assertionFailure("No SPDX identifier for \(self)")
+      return rawValue
     }
+    return identifier
   }
 
   /// The name of the license file at the project root: `LICENSE`, `COPYING` for GPL 3 and
   /// `UNLICENSE` for the Unlicense.
   public var fileName: String {
-    switch self {
-    case .gpl3: "COPYING"
-    case .unlicense: "UNLICENSE"
-    default: "LICENSE"
-    }
+    Self.fileNames[self] ?? "LICENSE"
   }
 
   /// Whether file headers carry a copyright line. `false` for CC0 and the Unlicense.
   public var includesCopyrightLine: Bool {
-    switch self {
-    case .cc0, .unlicense: false
-    default: true
-    }
+    !Self.withoutCopyrightLine.contains(self)
   }
 
   /// Whether the license asks for a short notice in each source file: Apache, GPL, LGPL,
   /// AGPL, MPL and EPL.
   public var requiresPerFileNotice: Bool {
-    switch self {
-    case .apache2, .gpl2, .gpl3, .lgpl21, .agpl3, .mpl2, .epl2: true
-    default: false
-    }
+    Self.withPerFileNotice.contains(self)
   }
 }
