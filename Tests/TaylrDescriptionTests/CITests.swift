@@ -83,8 +83,28 @@ internal enum CITests {
     internal func defaults() {
       #expect(
         CI.githubActions()
-          == .githubActions(runners: .selfHosted(), workflows: CI.Workflow.allCases)
+          == .githubActions(
+            runners: .selfHosted(),
+            workflows: CI.Workflow.allCases,
+            matrix: CI.Matrix()
+          )
       )
+    }
+
+    @Test("The matrix reference example compiles and round-trips")
+    internal func matrixReferenceExample() throws {
+      let config: CI = .githubActions(
+        runners: .selfHosted(xcodes: ["/Applications/Xcode.app", "/Applications/Xcode-26.4.app"]),
+        matrix: .init(
+          feature: .init(include: [.linux(.jammy)]),
+          main: .init(
+            include: [.xcode(path: "/Applications/Xcode-26.4.app")],
+            exclude: [.android(api: 34)]
+          )
+        )
+      )
+      #expect(try roundTrip(config) == config)
+      #expect(config != .githubActions())
     }
 
     @Test("The reference example compiles and round-trips")
@@ -95,6 +115,48 @@ internal enum CITests {
       )
       #expect(try roundTrip(config) == config)
       #expect(CI.githubActions(runners: .githubHosted) != config)
+    }
+  }
+
+  @Suite("Matrix")
+  internal struct MatrixTests {
+    private static let entries: [CI.MatrixEntry] = [
+      .swift("6.1"), .linux(.noble), .linux(.jammy), .wasm, .wasmEmbedded,
+      .windows(.v2022), .windows(.v2025), .android(api: 34), .android(api: 35),
+      .xcode("26.4"), .xcode(path: "/Applications/Xcode-26.4.app"),
+    ]
+
+    @Test("Matrix and Entries default to empty")
+    internal func defaults() {
+      let matrix = CI.Matrix()
+      #expect(matrix.feature == CI.Matrix.Entries(include: [], exclude: []))
+      #expect(matrix.version == CI.Matrix.Entries())
+      #expect(matrix.main == CI.Matrix.Entries())
+      #expect(CI.Matrix.Entries().include.isEmpty)
+      #expect(CI.Matrix.Entries().exclude.isEmpty)
+    }
+
+    @Test("Each entry round-trips", arguments: entries)
+    internal func entryRoundTrips(entry: CI.MatrixEntry) throws {
+      #expect(try roundTrip(entry) == entry)
+    }
+
+    @Test("The two xcode spellings and the android levels stay distinct")
+    internal func distinctEntries() throws {
+      #expect(CI.MatrixEntry.xcode("26.4") != .xcode(path: "26.4"))
+      #expect(CI.MatrixEntry.android(api: 34) != .android(api: 35))
+      let decoded = try roundTrip(CI.MatrixEntry.xcode(path: "26.4"))
+      #expect(decoded == .xcode(path: "26.4"))
+    }
+
+    @Test("A full matrix round-trips")
+    internal func matrixRoundTrips() throws {
+      let matrix = CI.Matrix(
+        feature: .init(include: [.wasm], exclude: [.windows(.v2025)]),
+        version: .init(exclude: [.swift("6.0")]),
+        main: .init(include: Self.entries)
+      )
+      #expect(try roundTrip(matrix) == matrix)
     }
   }
 }
