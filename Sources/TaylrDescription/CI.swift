@@ -27,10 +27,8 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-// swiftlint:disable type_name
 /// How continuous integration runs for a project.
 ///
 /// Write CI as ``githubActions(runners:workflows:matrix:)``. Models store it as a
 /// ``CISerialization``.
 public protocol CI: ManifestValue where Serialization == CISerialization {}
-// swiftlint:enable type_name
