@@ -12,6 +12,6 @@ This directory replaces any native or global memory feature for this project (Cl
 
 ## Memories
 
-- [MiseKit TOML decision](misekit-toml-decision.md) — tabled: how MiseKit decodes TOML; ask before step 2.2 round-trip work
+- [MiseKit TOML decision](misekit-toml-decision.md) — decided: MiseKit's own minimal TOML decoder; fork dduan/TOMLDecoder only if needed
 - [Manifest loading](manifest-loading.md) — why Manifest.swift is compiled and run, read back as JSON; dlopen and parsing ruled out
 - [taylr.sh pending edits](taylr-sh-pending-edits.md) — decided changes the docs site doesn't show yet (integration.yml, .android(api:))
