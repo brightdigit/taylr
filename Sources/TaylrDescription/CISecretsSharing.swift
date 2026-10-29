@@ -1,5 +1,5 @@
 //
-//  CustomProfile+GitHubOrganization.swift
+//  CISecretsSharing.swift
 //  taylr
 //
 //  Created by Leo Dion.
@@ -27,32 +27,12 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-extension CustomProfile {
-  /// The GitHub organization of a custom profile and how CI secrets are shared.
-  public struct GitHubOrganization: Sendable, Codable, Equatable {
-    /// How CI secrets are shared with GitHub.
-    public enum CISecrets: String, Sendable, Codable, Equatable {
-      /// Shared as organization secrets.
-      case organization
-      /// Shared as repository secrets.
-      case repository
-      /// Not shared.
-      case skip
-    }
-
-    /// The GitHub organization. `nil` means the user's own account.
-    public let org: String?
-    /// How CI secrets are shared. `nil` means none.
-    public let ciSecrets: CISecrets?
-
-    /// Creates the GitHub settings of a custom profile.
-    ///
-    /// - Parameters:
-    ///   - org: The GitHub organization.
-    ///   - ciSecrets: How CI secrets are shared.
-    public init(org: String? = nil, ciSecrets: CISecrets? = nil) {
-      self.org = org
-      self.ciSecrets = ciSecrets
-    }
-  }
+/// How CI secrets are shared with GitHub.
+public enum CISecretsSharing: String, Sendable, Codable, Equatable {
+  /// Shared as organization secrets.
+  case organization
+  /// Shared as repository secrets.
+  case repository
+  /// Not shared.
+  case skip
 }

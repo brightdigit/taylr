@@ -117,16 +117,16 @@ internal enum ProfileTests {
 
   @Suite("Cases")
   internal struct CaseTests {
-    private static let storages: [any CustomProfile.Signing.Storage] = [
+    private static let storages: [any Storage] = [
       .git("git@github.com:acme/certs.git"),
       .s3(bucket: "acme-certs", region: "us-east-1"),
       .googleCloudStorage(bucket: "acme-certs"),
       .gitlabSecureFiles(project: "acme/certs"),
     ]
-    private static let ciSecrets: [CustomProfile.GitHubOrganization.CISecrets] = [
+    private static let ciSecrets: [CISecretsSharing] = [
       .organization, .repository, .skip,
     ]
-    private static let secrets: [any CustomProfile.Secrets] = [
+    private static let secrets: [any Secrets] = [
       .team(), .team("ABCDE12345"), .profile("acme"), .environment,
     ]
 
@@ -139,12 +139,12 @@ internal enum ProfileTests {
       }
     }
 
-    @Test("Every CISecrets case round-trips as a plain string")
+    @Test("Every CISecretsSharing case round-trips as a plain string")
     internal func ciSecretsRoundTrip() throws {
       for value in Self.ciSecrets {
         #expect(try ProfileTests.roundTrip(value) == value)
       }
-      let data = try JSONEncoder().encode(CustomProfile.GitHubOrganization.CISecrets.skip)
+      let data = try JSONEncoder().encode(CISecretsSharing.skip)
       #expect(String(decoding: data, as: UTF8.self) == "\"skip\"")
     }
 
@@ -159,8 +159,8 @@ internal enum ProfileTests {
 
     @Test(".team() and .team(nil) serialize equally")
     internal func teamDefault() {
-      let explicit = CustomProfile.TeamSecrets(teamID: nil)
-      #expect(CustomProfile.TeamSecrets.serializesEqually(.team(), explicit))
+      let explicit = TeamSecrets(teamID: nil)
+      #expect(TeamSecrets.serializesEqually(.team(), explicit))
     }
   }
 

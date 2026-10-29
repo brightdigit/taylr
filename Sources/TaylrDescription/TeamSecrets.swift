@@ -1,5 +1,5 @@
 //
-//  CustomProfile+Signing.swift
+//  TeamSecrets.swift
 //  taylr
 //
 //  Created by Leo Dion.
@@ -27,32 +27,23 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-extension CustomProfile {
-  /// Where a custom profile's code-signing certificates are kept.
-  public struct Signing: Sendable, Codable, Equatable {
-    /// A place to keep code-signing certificates, such as `.git(…)` or `.s3(bucket:region:)`.
-    public protocol Storage: ManifestValue where Serialization == StorageSerialization {}
+/// Secrets from the named profile for a team.
+public struct TeamSecrets: Secrets {
+  /// The team ID, or `nil` for the profile's own `apple.teamID`.
+  public var teamID: String?
+  /// The secrets as ``SecretsSerialization/team(teamID:)``.
+  public var serialization: SecretsSerialization { .team(teamID: teamID) }
+  /// Creates the secrets source.
+  /// - Parameter teamID: The team ID, or `nil` for the profile's own `apple.teamID`.
+  public init(teamID: String?) { self.teamID = teamID }
+}
 
-    /// How a ``Storage`` is stored and encoded: one case per place.
-    public enum StorageSerialization: Sendable, Codable, Equatable {
-      /// A Git repository, by its URL.
-      case git(url: String)
-      /// An Amazon S3 bucket.
-      case s3(bucket: String, region: String)  // swiftlint:disable:this identifier_name
-      /// A Google Cloud Storage bucket.
-      case googleCloudStorage(bucket: String)
-      /// A GitLab project's secure files.
-      case gitlabSecureFiles(project: String)
-    }
-
-    /// Where the certificates are kept.
-    public let storage: StorageSerialization
-
-    /// Creates the signing settings of a custom profile.
-    ///
-    /// - Parameter storage: Where the certificates are kept.
-    public init(storage: any Storage) {
-      self.storage = storage.serialization
-    }
+extension Secrets where Self == TeamSecrets {
+  /// The named profile with the same `apple.teamID`, or, with a team ID, the named profile for
+  /// that team.
+  /// - Parameter teamID: The team ID. Defaults to `nil`, the profile's own `apple.teamID`.
+  /// - Returns: The secrets source.
+  public static func team(_ teamID: String? = nil) -> TeamSecrets {
+    TeamSecrets(teamID: teamID)
   }
 }
