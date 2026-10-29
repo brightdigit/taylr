@@ -28,7 +28,7 @@
 //
 
 /// CI on GitHub Actions, writing the workflows into `.github/workflows/`.
-public struct GitHubActions: CI, Codable, Equatable {
+public struct GitHubActions: ContinuousIntegration, Codable, Equatable {
   /// Where the macOS jobs run.
   public var runners: RunnersSerialization
   /// The workflows to write.
@@ -36,8 +36,10 @@ public struct GitHubActions: CI, Codable, Equatable {
   /// Builds to add to, or leave out of, the standard builds.
   public var matrix: Matrix
 
-  /// The configuration as ``CISerialization/githubActions(configuration:)``.
-  public var serialization: CISerialization { .githubActions(configuration: self) }
+  /// The configuration as ``ContinuousIntegrationSerialization/githubActions(configuration:)``.
+  public var serialization: ContinuousIntegrationSerialization {
+    .githubActions(configuration: self)
+  }
 
   /// Creates a GitHub Actions configuration.
   ///
@@ -56,7 +58,7 @@ public struct GitHubActions: CI, Codable, Equatable {
   }
 }
 
-extension CI where Self == GitHubActions {
+extension ContinuousIntegration where Self == GitHubActions {
   /// Run CI on GitHub Actions, writing the workflows into `.github/workflows/`.
   ///
   /// - Parameters:
