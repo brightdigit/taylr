@@ -1,5 +1,5 @@
 //
-//  CustomProfile+Apple.swift
+//  S3Storage.swift
 //  taylr
 //
 //  Created by Leo Dion.
@@ -27,27 +27,31 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-extension CustomProfile {
-  /// The Apple team of a custom profile.
-  public struct Apple: Sendable, Codable, Equatable {
-    /// The Apple Developer Team ID. Needed to sign.
-    public let teamID: String?
-    /// The Apple ID for App Store Connect. Usually left out, so each person's own comes from
-    /// their `config.yml`.
-    public let appleID: String?
-    /// The App Store Connect team ID, if the Apple ID belongs to more than one team.
-    public let ascTeamID: String?
+/// Files kept in an Amazon S3 bucket.
+public struct S3Storage: Storage {
+  /// The bucket.
+  public var bucket: String
+  /// The bucket's region, such as `us-east-1`.
+  public var region: String
+  /// The storage as ``StorageSerialization/s3(bucket:region:)``.
+  public var serialization: StorageSerialization { .s3(bucket: bucket, region: region) }
+  /// Creates the storage.
+  /// - Parameters:
+  ///   - bucket: The bucket.
+  ///   - region: The bucket's region.
+  public init(bucket: String, region: String) {
+    self.bucket = bucket
+    self.region = region
+  }
+}
 
-    /// Creates the Apple team of a custom profile.
-    ///
-    /// - Parameters:
-    ///   - teamID: The Apple Developer Team ID.
-    ///   - appleID: The Apple ID for App Store Connect.
-    ///   - ascTeamID: The App Store Connect team ID.
-    public init(teamID: String? = nil, appleID: String? = nil, ascTeamID: String? = nil) {
-      self.teamID = teamID
-      self.appleID = appleID
-      self.ascTeamID = ascTeamID
-    }
+extension Storage where Self == S3Storage {
+  /// An Amazon S3 bucket.
+  /// - Parameters:
+  ///   - bucket: The bucket.
+  ///   - region: The bucket's region, such as `us-east-1`.
+  /// - Returns: The storage.
+  public static func s3(bucket: String, region: String) -> S3Storage {
+    S3Storage(bucket: bucket, region: region)
   }
 }

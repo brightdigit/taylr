@@ -36,7 +36,7 @@ public struct CustomProfile: ProfileSource, Codable, Equatable {
   /// The start of the app's bundle ID, or `nil` to derive it from ``organization``.
   public var bundleIDPrefix: String?
   /// The Apple team, or `nil` to leave it to the user's `config.yml`.
-  public var apple: Apple?
+  public var apple: AppleTeam?
   /// Where the code-signing certificates are kept.
   public var signing: Signing?
   /// The GitHub organization and how CI secrets are shared, or `nil` for the user's own account.
@@ -73,7 +73,7 @@ public struct CustomProfile: ProfileSource, Codable, Equatable {
   public init(
     organization: String,
     bundleIDPrefix: String? = nil,
-    apple: Apple? = nil,
+    apple: AppleTeam? = nil,
     signing: Signing? = nil,
     github: GitHubOrganization? = nil,
     secrets: any Secrets = .team()
@@ -103,10 +103,10 @@ extension ProfileSource where Self == CustomProfile {
   public static func organization(
     _ name: String,
     bundleIDPrefix: String? = nil,
-    apple: CustomProfile.Apple? = nil,
-    signing: CustomProfile.Signing? = nil,
-    github: CustomProfile.GitHubOrganization? = nil,
-    secrets: any CustomProfile.Secrets = .team()
+    apple: AppleTeam? = nil,
+    signing: Signing? = nil,
+    github: GitHubOrganization? = nil,
+    secrets: any Secrets = .team()
   ) -> CustomProfile {
     CustomProfile(
       organization: name,
