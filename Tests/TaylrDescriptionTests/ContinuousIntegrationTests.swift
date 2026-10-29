@@ -3,8 +3,8 @@ import Testing
 
 @testable import TaylrDescription
 
-@Suite("CI")
-internal enum CITests {
+@Suite("ContinuousIntegration")
+internal enum ContinuousIntegrationTests {
   @Suite("Workflow.fileNames")
   internal struct WorkflowFileNamesTests {
     private struct Row {
@@ -109,7 +109,7 @@ internal enum CITests {
 
     @Test("The matrix reference example compiles and round-trips")
     internal func matrixReferenceExample() throws {
-      let config: any CI = .githubActions(
+      let config: any ContinuousIntegration = .githubActions(
         runners: .selfHosted(xcodes: ["/Applications/Xcode.app", "/Applications/Xcode-26.4.app"]),
         matrix: .init(
           feature: .init(include: [.linux(.jammy)]),
@@ -126,7 +126,7 @@ internal enum CITests {
 
     @Test("The reference example compiles and round-trips")
     internal func referenceExample() throws {
-      let config: any CI = .githubActions(
+      let config: any ContinuousIntegration = .githubActions(
         runners: .githubHosted,
         workflows: [.ci, .appStoreMetadata, .appStoreSession]
       )
@@ -137,7 +137,9 @@ internal enum CITests {
 
     @Test("An optional CI parameter takes githubActions, nil, or a default")
     internal func optionalParameter() {
-      func serialize(_ config: (any CI)? = .githubActions()) -> CISerialization? {
+      func serialize(_ config: (any ContinuousIntegration)? = .githubActions())
+        -> ContinuousIntegrationSerialization?
+      {
         config?.serialization
       }
       #expect(serialize() == GitHubActions().serialization)

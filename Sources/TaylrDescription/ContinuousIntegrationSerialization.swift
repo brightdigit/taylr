@@ -1,5 +1,5 @@
 //
-//  CI.swift
+//  ContinuousIntegrationSerialization.swift
 //  taylr
 //
 //  Created by Leo Dion.
@@ -27,8 +27,8 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-/// How continuous integration runs for a project.
-///
-/// Write CI as ``githubActions(runners:workflows:matrix:)``. Models store it as a
-/// ``CISerialization``.
-public protocol CI: ManifestValue where Serialization == CISerialization {}
+/// How a ``ContinuousIntegration`` is stored and encoded: one case per CI service.
+public enum ContinuousIntegrationSerialization: Sendable, Codable, Equatable {
+  /// GitHub Actions, writing the workflows into `.github/workflows/`.
+  case githubActions(configuration: GitHubActions)
+}
