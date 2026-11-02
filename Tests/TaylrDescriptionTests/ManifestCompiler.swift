@@ -66,12 +66,12 @@ internal enum ManifestCompiler {
     return result.stdout
   }
 
-  /// The module's sources, found from this file's location.
+  /// The module's sources, found from this file's location, including those in subfolders.
   private static func sources() throws -> [String] {
     let root = URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let folder = root.appendingPathComponent("Sources/TaylrDescription")
-    return try FileManager.default.contentsOfDirectory(atPath: folder.path)
+    return try FileManager.default.subpathsOfDirectory(atPath: folder.path)
       .filter { $0.hasSuffix(".swift") }.sorted()
       .map { folder.appendingPathComponent($0).path }
   }
