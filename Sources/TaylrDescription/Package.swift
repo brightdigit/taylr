@@ -60,7 +60,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
   public var github: GitHub?
 
   /// How CI runs, or `nil` for no CI.
-  public var ci: CISerialization?  // swiftlint:disable:this identifier_name
+  public var ci: ContinuousIntegrationSerialization?  // swiftlint:disable:this identifier_name
 
   /// Whether to add dev containers in `.devcontainer/`.
   public var devcontainer: Bool
@@ -107,7 +107,7 @@ public struct Package: Sendable, Codable, Equatable, ExpressibleByStringLiteral 
     includeNightly: Bool = false,
     github: GitHub? = nil,
     // swiftlint:disable:next identifier_name
-    ci: (any CI)? = .githubActions(workflows: [.ci, .cleanup, .claude]),
+    ci: (any ContinuousIntegration)? = .githubActions(workflows: [.ci, .cleanup, .claude]),
     devcontainer: Bool = true,
     lint: [LintTool] = [.swiftLint, .swiftFormat],
     header: (any Header)? = .file("Scripts/header.mustache"),
