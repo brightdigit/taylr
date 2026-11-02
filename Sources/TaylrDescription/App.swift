@@ -49,7 +49,7 @@ public struct App: Sendable, Codable, Equatable {
   public var appGroupID: String?
 
   /// The app's web links, or `nil` for none: add them before you submit to the App Store.
-  public var urls: URLs?
+  public var urls: WebLinks?
 
   /// The app's local packages and how they depend on each other.
   public var packages: PackageLayoutSerialization
@@ -82,7 +82,7 @@ public struct App: Sendable, Codable, Equatable {
   public var github: GitHub?
 
   /// How CI runs, or `nil` for no CI.
-  public var ci: CISerialization?  // swiftlint:disable:this identifier_name
+  public var ci: ContinuousIntegrationSerialization?  // swiftlint:disable:this identifier_name
 
   /// The Swift language version, or `nil` for the Swift that comes with the selected Xcode.
   public var swiftVersion: String?
@@ -145,7 +145,7 @@ public struct App: Sendable, Codable, Equatable {
     platforms: [Platform],
     bundleID: String? = nil,
     appGroupID: String? = nil,
-    urls: URLs? = nil,
+    urls: WebLinks? = nil,
     packages: any PackageLayout = .appOnly,
     appStoreConnect: AppStoreConnect? = .fastlane,
     screenshots: Screenshots? = .fastlaneSnapshot,
@@ -157,7 +157,7 @@ public struct App: Sendable, Codable, Equatable {
     taylrVersion: String = "1.0.0",
     github: GitHub? = nil,
     // swiftlint:disable:next identifier_name
-    ci: (any CI)? = .githubActions(),
+    ci: (any ContinuousIntegration)? = .githubActions(),
     swiftVersion: String? = nil,
     includeNightly: Bool = false,
     devcontainer: Bool = true,

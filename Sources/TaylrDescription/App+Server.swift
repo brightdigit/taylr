@@ -68,7 +68,7 @@ extension App {
     platforms: [Platform],
     bundleID: String? = nil,
     appGroupID: String? = nil,
-    urls: URLs? = nil,
+    urls: WebLinks? = nil,
     server: Package,
     appStoreConnect: AppStoreConnect? = .fastlane,
     screenshots: Screenshots? = .fastlaneSnapshot,
@@ -80,7 +80,7 @@ extension App {
     taylrVersion: String = "1.0.0",
     github: GitHub? = nil,
     // swiftlint:disable:next identifier_name
-    ci: (any CI)? = .githubActions(),
+    ci: (any ContinuousIntegration)? = .githubActions(),
     swiftVersion: String? = nil,
     includeNightly: Bool = false,
     devcontainer: Bool = true,
