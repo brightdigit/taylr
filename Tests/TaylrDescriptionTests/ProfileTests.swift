@@ -17,27 +17,28 @@ internal enum ProfileTests {
     @Test("The prefix is com. and the lowercased organization without punctuation")
     internal func derivesPrefix() {
       for (organization, expected) in Self.cases {
-        #expect(Profile(organization: organization).resolvedBundleIDPrefix == expected)
+        #expect(CustomProfile(organization: organization).resolvedBundleIDPrefix == expected)
       }
     }
 
     @Test("A written prefix is kept")
     internal func keepsWrittenPrefix() {
-      let profile = Profile(organization: "Client X Inc", bundleIDPrefix: "com.clientx")
+      let profile = CustomProfile(organization: "Client X Inc", bundleIDPrefix: "com.clientx")
       #expect(profile.resolvedBundleIDPrefix == "com.clientx")
+      #expect(profile.serialization.resolvedBundleIDPrefix == "com.clientx")
     }
 
     @Test("A named profile has no resolved prefix")
     internal func namedHasNone() {
-      #expect(Profile.named("client-x").resolvedBundleIDPrefix == nil)
+      #expect(ProfileReference.named("client-x").serialization.resolvedBundleIDPrefix == nil)
     }
   }
 
   @Suite("Reference example")
   internal struct ReferenceTests {
-    private static let named: Profile = .named("client-x")
-    private static let inline: Profile = .init(
-      organization: "Client X Inc",
+    private static let named: any ProfileSource = .named("client-x")
+    private static let custom: any ProfileSource = .organization(
+      "Client X Inc",
       bundleIDPrefix: "com.clientx",
       apple: .init(teamID: "FGHIJ67890", ascTeamID: "7654321"),
       signing: .init(storage: .git("git@github.com:clientx/certs.git")),
@@ -46,96 +47,120 @@ internal enum ProfileTests {
 
     @Test("Both spellings compile and round-trip")
     internal func roundTrips() throws {
-      #expect(try ProfileTests.roundTrip(Self.named) == Self.named)
-      #expect(try ProfileTests.roundTrip(Self.inline) == Self.inline)
+      #expect(try ProfileTests.roundTrip(Self.named.serialization) == Self.named.serialization)
+      #expect(try ProfileTests.roundTrip(Self.custom.serialization) == Self.custom.serialization)
+    }
+
+    @Test("A custom profile and its spelled-out type serialize equally")
+    internal func customMatchesInit() {
+      let profile = CustomProfile(
+        organization: "Client X Inc",
+        bundleIDPrefix: "com.clientx",
+        apple: .init(teamID: "FGHIJ67890", ascTeamID: "7654321"),
+        signing: .init(storage: .git("git@github.com:clientx/certs.git")),
+        github: .init(org: "clientx")
+      )
+      #expect(profile.serialization == Self.custom.serialization)
     }
 
     @Test("Omitted fields take their defaults")
     internal func defaults() {
-      let profile = Profile(organization: "Acme Corp")
-      guard case .inline(_, let prefix, let apple, let signing, let github, let secrets) = profile
-      else {
-        Issue.record("Expected an inline profile")
-        return
-      }
-      #expect(prefix == nil)
-      #expect(apple == nil)
-      #expect(signing == nil)
-      #expect(github == nil)
-      #expect(secrets == .team())
-      #expect(secrets == .team(nil))
+      let profile = CustomProfile(organization: "Acme Corp")
+      #expect(profile.bundleIDPrefix == nil)
+      #expect(profile.apple == nil)
+      #expect(profile.signing == nil)
+      #expect(profile.github == nil)
+      #expect(profile.secrets == .team(teamID: nil))
     }
   }
 
-  @Suite("Decoding JSON")
-  internal struct DecodingTests {
-    private static let namedJSON = #"{"named":{"_0":"client-x"}}"#
-    private static let inlineJSON = """
-      {"inline":{"organization":"Acme Corp","bundleIDPrefix":"com.acmecorp",\
+  @Suite("Encoding JSON")
+  internal struct EncodingTests {
+    private static let namedJSON = #"{"reference":{"name":"client-x"}}"#
+    private static let customJSON = """
+      {"custom":{"profile":{"organization":"Acme Corp","bundleIDPrefix":"com.acmecorp",\
       "apple":{"teamID":"ABCDE12345"},\
       "signing":{"storage":{"s3":{"bucket":"acme-certs","region":"us-east-1"}}},\
       "github":{"org":"acme","ciSecrets":"skip"},\
-      "secrets":{"profile":{"_0":"acme"}}}}
+      "secrets":{"profile":{"name":"acme"}}}}}
       """
 
     @Test(".named decodes from JSON")
     internal func decodesNamed() throws {
-      let profile = try JSONDecoder().decode(Profile.self, from: Data(Self.namedJSON.utf8))
-      #expect(profile == .named("client-x"))
+      let data = Data(Self.namedJSON.utf8)
+      let profile = try JSONDecoder().decode(ProfileSerialization.self, from: data)
+      #expect(profile == ProfileReference.named("client-x").serialization)
     }
 
-    @Test("An inline profile decodes from JSON")
-    internal func decodesInline() throws {
-      let profile = try JSONDecoder().decode(Profile.self, from: Data(Self.inlineJSON.utf8))
-      let expected = Profile(
-        organization: "Acme Corp",
+    @Test("A custom profile decodes from JSON")
+    internal func decodesCustom() throws {
+      let data = Data(Self.customJSON.utf8)
+      let profile = try JSONDecoder().decode(ProfileSerialization.self, from: data)
+      let expected = CustomProfile.organization(
+        "Acme Corp",
         bundleIDPrefix: "com.acmecorp",
         apple: .init(teamID: "ABCDE12345"),
         signing: .init(storage: .s3(bucket: "acme-certs", region: "us-east-1")),
         github: .init(org: "acme", ciSecrets: .skip),
         secrets: .profile("acme")
-      )
+      ).serialization
       #expect(profile == expected)
       #expect(try ProfileTests.roundTrip(profile) == expected)
+    }
+
+    @Test("A named profile encodes with labeled keys")
+    internal func encodesNamed() throws {
+      let data = try JSONEncoder().encode(ProfileReference.named("client-x").serialization)
+      #expect(String(decoding: data, as: UTF8.self) == Self.namedJSON)
     }
   }
 
   @Suite("Cases")
   internal struct CaseTests {
-    private static let storages: [Profile.Signing.Storage] = [
+    private static let storages: [any Storage] = [
       .git("git@github.com:acme/certs.git"),
       .s3(bucket: "acme-certs", region: "us-east-1"),
       .googleCloudStorage(bucket: "acme-certs"),
       .gitlabSecureFiles(project: "acme/certs"),
     ]
-    private static let ciSecrets: [Profile.GitHubOrganization.CISecrets] = [
+    private static let ciSecrets: [CISecretsSharing] = [
       .organization, .repository, .skip,
     ]
-    private static let secrets: [Profile.Secrets] = [
+    private static let secrets: [any Secrets] = [
       .team(), .team("ABCDE12345"), .profile("acme"), .environment,
     ]
 
-    @Test("Every Storage case round-trips")
+    @Test("Every Storage case round-trips with labeled keys")
     internal func storagesRoundTrip() throws {
-      for value in Self.storages {
+      for value in Self.storages.map({ $0.serialization }) {
         #expect(try ProfileTests.roundTrip(value) == value)
+        let data = try JSONEncoder().encode(value)
+        #expect(!String(decoding: data, as: UTF8.self).contains("_0"))
       }
     }
 
-    @Test("Every CISecrets case round-trips as a plain string")
+    @Test("Every CISecretsSharing case round-trips as a plain string")
     internal func ciSecretsRoundTrip() throws {
       for value in Self.ciSecrets {
         #expect(try ProfileTests.roundTrip(value) == value)
       }
-      let data = try JSONEncoder().encode(Profile.GitHubOrganization.CISecrets.skip)
+      let data = try JSONEncoder().encode(CISecretsSharing.skip)
       #expect(String(decoding: data, as: UTF8.self) == "\"skip\"")
     }
 
-    @Test("Every Secrets case round-trips")
+    @Test("Every Secrets case round-trips with labeled keys")
     internal func secretsRoundTrip() throws {
-      for value in Self.secrets {
+      for value in Self.secrets.map({ $0.serialization }) {
         #expect(try ProfileTests.roundTrip(value) == value)
+        let data = try JSONEncoder().encode(value)
+        #expect(!String(decoding: data, as: UTF8.self).contains("_0"))
       }
+    }
+
+    @Test(".team() and .team(nil) serialize equally")
+    internal func teamDefault() {
+      let explicit = TeamSecrets(teamID: nil)
+      #expect(TeamSecrets.serializesEqually(.team(), explicit))
     }
   }
 

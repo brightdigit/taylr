@@ -1,5 +1,5 @@
 //
-//  CI+Matrix.swift
+//  GitHubActions+Matrix.swift
 //  taylr
 //
 //  Created by Leo Dion.
@@ -27,7 +27,7 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-extension CI {
+extension GitHubActions {
   /// Builds to add to, or leave out of, what `.ci` builds on each kind of change.
   ///
   /// Something you include runs in that build and the bigger ones: included in `feature`, it also
@@ -36,18 +36,19 @@ extension CI {
     /// The builds to include in, and exclude from, one of the standard builds.
     public struct Entries: Sendable, Codable, Equatable {
       /// Builds to add.
-      public var include: [MatrixEntry]
+      public var include: [MatrixEntrySerialization]
       /// Builds to leave out.
-      public var exclude: [MatrixEntry]
+      public var exclude: [MatrixEntrySerialization]
 
       /// Creates a set of entries. Both default to empty.
       ///
       /// - Parameters:
       ///   - include: Builds to add.
       ///   - exclude: Builds to leave out.
-      public init(include: [MatrixEntry] = [], exclude: [MatrixEntry] = []) {
-        self.include = include
-        self.exclude = exclude
+      public init(include: [any MatrixEntry] = [], exclude: [any MatrixEntry] = []) {
+        // A key path (`\.serialization`) over an existential crashes SILGen in Swift 6.4.1.
+        self.include = include.map { $0.serialization }
+        self.exclude = exclude.map { $0.serialization }
       }
     }
 
@@ -73,6 +74,5 @@ extension CI {
       self.version = version
       self.main = main
     }
-
   }
 }

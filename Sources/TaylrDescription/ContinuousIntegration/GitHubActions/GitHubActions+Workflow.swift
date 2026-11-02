@@ -1,5 +1,5 @@
 //
-//  CI.swift
+//  GitHubActions+Workflow.swift
 //  taylr
 //
 //  Created by Leo Dion.
@@ -27,37 +27,7 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-/// How continuous integration runs for a project.
-public enum CI: Sendable, Codable, Equatable {  // swiftlint:disable:this type_name
-  /// Run CI on GitHub Actions, writing the workflows into `.github/workflows/`.
-  ///
-  /// - Parameters:
-  ///   - runners: Where the macOS jobs run. Defaults to `.selfHosted()`.
-  ///   - workflows: The workflows to write. Defaults to all of them.
-  ///   - matrix: Builds to add to, or leave out of, the standard builds. Defaults to none.
-  case githubActions(
-    runners: Runners = .selfHosted(),
-    workflows: [Workflow] = Workflow.allCases,
-    matrix: Matrix = Matrix()
-  )
-
-  /// Where the macOS jobs run. Linux, Windows and Android jobs always run on GitHub's runners.
-  public enum Runners: Sendable, Codable, Equatable {
-    /// Run the macOS jobs on your own Macs, picked by their runner labels.
-    ///
-    /// - Parameters:
-    ///   - labels: The runner labels. Defaults to `["self-hosted", "macOS"]`.
-    ///   - xcodes: The Xcode apps installed on the Macs, by path. Defaults to
-    ///     `["/Applications/Xcode.app"]`.
-    case selfHosted(
-      labels: [String] = ["self-hosted", "macOS"],
-      xcodes: [String] = ["/Applications/Xcode.app"]
-    )
-
-    /// Run the macOS jobs on GitHub's runners, which are free for public repositories.
-    case githubHosted
-  }
-
+extension GitHubActions {
   /// A workflow in `.github/workflows/`.
   public enum Workflow: String, Sendable, Codable, Equatable, CaseIterable {
     /// Builds, lints and tests pull requests and `main`. In an app, uploads `main` to TestFlight.
@@ -71,16 +41,22 @@ public enum CI: Sendable, Codable, Equatable {  // swiftlint:disable:this type_n
     /// Answers `@claude` in issues and pull requests, and reviews pull requests.
     case claude
 
+    private static let fileNames: [Workflow: [String]] = [
+      .ci: ["integration.yml"],
+      .appStoreMetadata: ["app-store-metadata.yml"],
+      .appStoreSession: ["asc-session.yml"],
+      .cleanup: ["cleanup-caches.yml", "cleanup-pr-caches.yml"],
+      .claude: ["claude.yml", "claude-code-review.yml"],
+    ]
+
     /// The file names this workflow writes into `.github/workflows/`, the same in an app and a
     /// package.
     public var fileNames: [String] {
-      switch self {
-      case .ci: ["integration.yml"]
-      case .appStoreMetadata: ["app-store-metadata.yml"]
-      case .appStoreSession: ["asc-session.yml"]
-      case .cleanup: ["cleanup-caches.yml", "cleanup-pr-caches.yml"]
-      case .claude: ["claude.yml", "claude-code-review.yml"]
+      guard let names = Self.fileNames[self] else {
+        assertionFailure("No file names for \(self)")
+        return []
       }
+      return names
     }
   }
 }

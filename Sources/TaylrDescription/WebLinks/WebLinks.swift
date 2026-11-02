@@ -1,5 +1,5 @@
 //
-//  URLs.swift
+//  WebLinks.swift
 //  taylr
 //
 //  Created by Leo Dion.
@@ -31,7 +31,7 @@
 ///
 /// Give each link in full with ``init(privacy:support:marketing:)``, or give your website and
 /// the path of each page with ``base(_:privacy:support:marketing:)``.
-public struct URLs: Sendable, Codable, Equatable {
+public struct WebLinks: Sendable, Codable, Equatable {
   /// The privacy policy URL. Required by App Store Connect.
   public var privacy: String
 
@@ -41,7 +41,7 @@ public struct URLs: Sendable, Codable, Equatable {
   /// The marketing page URL. Optional; `nil` by default.
   public var marketing: String?
 
-  /// Creates URLs from links given in full.
+  /// Creates web links from links given in full.
   ///
   /// - Parameters:
   ///   - privacy: The privacy policy URL.
@@ -53,7 +53,7 @@ public struct URLs: Sendable, Codable, Equatable {
     self.marketing = marketing
   }
 
-  /// Creates URLs from your website and the path of each page.
+  /// Creates web links from your website and the path of each page.
   ///
   /// Each path is joined to `url` with exactly one slash, whether or not `url` ends in `/` or
   /// the path starts with `/`. A path of `/` (or an empty path) resolves to `url` itself without a
@@ -65,14 +65,14 @@ public struct URLs: Sendable, Codable, Equatable {
   ///   - privacy: The path of the privacy policy. Defaults to `/privacy`.
   ///   - support: The path of the support page. Defaults to `/support`.
   ///   - marketing: The path of the marketing page. Defaults to `/`.
-  /// - Returns: The three URLs as absolute strings.
+  /// - Returns: The three links as absolute strings.
   public static func base(
     _ url: String,
     privacy: String = "/privacy",
     support: String = "/support",
     marketing: String = "/"
-  ) -> URLs {
-    URLs(
+  ) -> WebLinks {
+    WebLinks(
       privacy: join(url, privacy),
       support: join(url, support),
       marketing: join(url, marketing)
