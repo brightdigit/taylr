@@ -1,0 +1,4 @@
+/* Marketing titles for framed screenshots, keyed by a substring of the
+   screenshot file name (the name passed to snapshot("...")). Add a matching
+   { "filter": "01_Home" } entry to Framefile.json "data" for each. */
+"01_Home" = "Your headline here";

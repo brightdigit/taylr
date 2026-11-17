@@ -1,0 +1,16 @@
+openapi: '3.1.0'
+info:
+  title: {{TEMPLATE_APP_NAME}} API
+  version: 1.0.0
+paths:
+  /status:
+    get:
+      operationId: getStatus
+      summary: Health check
+      responses:
+        '200':
+          description: Server is running
+          content:
+            text/plain:
+              schema:
+                type: string

@@ -1,0 +1,4 @@
+MARKETING_VERSION = 1.0.0
+CURRENT_PROJECT_VERSION = 1
+// BETA_BASE_BUILD present => beta; remove the line => release
+BETA_BASE_BUILD = 0

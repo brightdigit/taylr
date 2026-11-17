@@ -1,0 +1,692 @@
+require 'credentials_manager'
+require_relative 'lib/featuring_nomination'
+
+# Fastfile for {{TEMPLATE_APP_NAME}}
+#
+# A "lane" is a named workflow — a sequence of fastlane actions you can invoke
+# with `bundle exec fastlane <lane>`. Lanes can call other lanes, which is how
+# the higher-level lanes here (beta, release) compose smaller building blocks
+# (release_build, sync_certificates_appstore, setup_api_key).
+#
+# Lane index (grouped by purpose):
+#   Setup       — setup_app, setup_groups
+#   Signing     — sync_certificates, sync_certificates_development,
+#                 sync_certificates_appstore, regenerate_development_profiles,
+#                 regenerate_appstore_profiles, regenerate_all_profiles,
+#                 add_dev_device, nuke_development_certs
+#   Test/Build  — test, build, release_build
+#   Versioning  — sync_build_number
+#   Screenshots — capture_ios, capture_frame, capture_all
+#   Beta        — beta
+#   Release     — release, upload_metadata, upload_privacy_details,
+#                 sync_featuring_nomination
+#   Helpers     — setup_api_key, asc_platform (private)
+#
+# Configuration lives in two files:
+#   - fastlane/Appfile        — identity (app_identifier, apple_id, team_id, itc_team_id)
+#   - fastlane/.env.default   — everything else (committed defaults, no secrets)
+# Local overrides and secrets go in fastlane/.env (gitignored).
+
+# `default_platform` sets the platform used when invoking a lane without a
+# platform prefix (e.g. `fastlane beta` instead of `fastlane mac beta`).
+# PLATFORM is set by setup.sh in fastlane/.env.default. Switching platforms
+# also requires updating TEST_DESTINATION, PRODUCE_PLATFORM, and
+# BUILD_ARTIFACT_EXT there.
+default_platform(ENV.fetch("PLATFORM").to_sym)
+
+# A `platform` block scopes lanes to a target platform. Every lane below runs
+# under the configured platform — there is intentionally only one block here so
+# this file stays single-platform per generated project.
+platform ENV.fetch("PLATFORM").to_sym do
+  # Run once per app, before any signing work. Wraps fastlane's `produce` action,
+  # which calls the App Store Connect API to register the bundle ID in both the
+  # Developer Portal and App Store Connect. Idempotent — re-running on an
+  # already-registered app is a no-op.
+  desc "Register app in Apple Developer Portal and App Store Connect"
+  lane :setup_app do
+    app_name = ENV.fetch("APP_NAME")
+    app_identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+    username = CredentialsManager::AppfileConfig.try_fetch_value(:apple_id)
+    team_id = CredentialsManager::AppfileConfig.try_fetch_value(:team_id)
+    itc_team_id = CredentialsManager::AppfileConfig.try_fetch_value(:itc_team_id)
+
+    UI.message("Using configuration from Appfile + .env.default:")
+    UI.message("  App Name: #{app_name}")
+    UI.message("  Bundle ID: #{app_identifier}")
+    UI.message("  Apple ID: #{username}")
+    UI.message("  Team ID: #{team_id}")
+    UI.message("  ITC Team ID: #{itc_team_id}")
+
+    produce(
+      username: username,
+      app_identifier: app_identifier,
+      app_name: app_name,
+      platform: ENV.fetch("PRODUCE_PLATFORM"),
+      team_id: team_id,
+      itc_team_id: itc_team_id,
+      skip_itc: false, # false = also create the App Store Connect record (not just the Developer Portal one)
+      enable_services: {
+        app_group: "on"
+      }
+    )
+
+    UI.success("✅ App registered in Developer Portal and App Store Connect!")
+    UI.message("Next step: Run 'make setup-groups', then 'make certs' to sync certificates")
+  end
+
+  # `setup_app` enables the App Groups capability but doesn't create the group
+  # or attach it to the App ID. `produce` exposes that only as CLI subcommands,
+  # so shell out to them. Re-running is safe: an existing group is reported
+  # and skipped, and re-associating is a no-op.
+  desc "Create the App Group identifier and associate it with the App ID"
+  lane :setup_groups do
+    username = CredentialsManager::AppfileConfig.try_fetch_value(:apple_id)
+    team_id = CredentialsManager::AppfileConfig.try_fetch_value(:team_id)
+    app_identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+    group_id = ENV.fetch("APP_GROUP_ID")
+
+    UI.message("Creating app group: #{group_id}")
+    begin
+      sh("fastlane produce group --group_identifier '#{group_id}' --group_name '#{ENV.fetch('APP_NAME')} Shared Data' --username '#{username}' --team_id '#{team_id}'")
+    rescue => e
+      UI.important("Note: #{e.message} (group may already exist, continuing)")
+    end
+
+    UI.message("Associating #{group_id} → #{app_identifier}...")
+    sh("fastlane produce associate_group -u '#{username}' -b '#{team_id}' -a '#{app_identifier}' '#{group_id}'")
+
+    UI.success("✅ App Group created and associated!")
+    UI.message("Next step: Run 'make certs-regenerate' to rebuild provisioning profiles")
+  end
+
+  # Pulls the development signing identity + provisioning profile from the
+  # encrypted certs repo (configured in Matchfile) and installs them in the
+  # local keychain. First run on an empty certs repo creates the cert/profile,
+  # encrypts them with MATCH_PASSWORD, and pushes them to the repo. Subsequent
+  # runs just decrypt and install.
+  desc "Sync development certificates and provisioning profiles"
+  lane :sync_certificates_development do
+    # In CI, fastlane's `setup_ci` action creates a temporary keychain and
+    # unlocks it so codesigning can write to it without a GUI prompt.
+    setup_ci if ENV['CI']
+
+    setup_api_key
+
+    match(
+      type: "development",
+      # `readonly: true` in CI prevents accidental cert/profile creation from
+      # ephemeral CI machines. New certs should be created locally (where you
+      # have a developer who can confirm 2FA prompts), then committed to the
+      # certs repo for CI to consume.
+      readonly: ENV["CI"] == "true",
+      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+    )
+    UI.success("✅ Development certificates synced!")
+  end
+
+  # Run after adding a new capability in the Developer Portal. `force: true`
+  # deletes the existing profile and generates a fresh one that includes the
+  # new capability. The cert is preserved — only the profile is regenerated.
+  desc "Force regenerate development provisioning profiles with updated capabilities"
+  lane :regenerate_development_profiles do
+    UI.important("⚠️  This will FORCE regenerate the development provisioning profile")
+    UI.important("    This completely recreates profiles to include any newly added capabilities")
+
+    setup_api_key
+
+    match(
+      type: "development",
+      force: true,
+      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+    )
+
+    UI.success("✅ Development provisioning profiles regenerated!")
+  end
+
+  # Development profiles embed the list of allowed device UDIDs, so a new
+  # device needs both a Developer Portal registration and a regenerated profile.
+  desc "Register a development device and refresh dev profiles to include it"
+  desc "Usage: fastlane add_dev_device udid:<device-udid> name:\"My iPhone\""
+  lane :add_dev_device do |options|
+    udid = options[:udid] || UI.user_error!("Pass udid:<device-udid>")
+    name = options[:name] || "Device #{udid[0, 8]}"
+
+    setup_api_key
+
+    # Apple groups Apple Watch, Apple TV and Vision Pro dev devices with the
+    # iOS device list; only Macs are registered separately.
+    register_devices(
+      devices: { name => udid },
+      platform: options[:platform] || (ENV.fetch("PLATFORM") == "mac" ? "mac" : "ios")
+    )
+
+    match(
+      type: "development",
+      force: true,
+      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+    )
+
+    UI.success("✅ Registered #{name} (#{udid}) and refreshed development profiles")
+  end
+
+  # Last resort when the development certificate has expired or its private
+  # key is lost. The certificate is shared by every app using the certs repo.
+  desc "Revoke and delete the shared development certificate + profiles (team-wide)"
+  lane :nuke_development_certs do
+    UI.important("⚠️  This REVOKES the team's development certificate and DELETES all")
+    UI.important("    development provisioning profiles from the Apple Developer Portal")
+    UI.important("    AND the match certificates repo.")
+    UI.important("    Every machine/app sharing the certs repo must re-run 'make certs-dev' afterward.")
+
+    setup_api_key
+
+    match_nuke(
+      type: "development",
+      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+    )
+
+    UI.success("✅ Development certificate + profiles nuked. Run 'make certs-regenerate-dev' next.")
+  end
+
+  # Same as `sync_certificates_development` but for the App Store distribution
+  # cert and profile. Required before any TestFlight or App Store upload.
+  desc "Sync App Store certificates and provisioning profiles"
+  lane :sync_certificates_appstore do
+    setup_ci if ENV['CI']
+
+    setup_api_key
+
+    match_opts = {
+      type: "appstore",
+      readonly: ENV["CI"] == "true",
+      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+    }
+    # macOS apps need a separate `mac_installer_distribution` cert to sign the
+    # .pkg installer that the Mac App Store requires. iOS/tvOS/watchOS .ipa
+    # bundles don't need this.
+    match_opts[:additional_cert_types] = ["mac_installer_distribution"] if ENV.fetch("PLATFORM") == "mac"
+    match(**match_opts)
+    UI.success("✅ App Store certificates synced!")
+  end
+
+  # App Store counterpart to `regenerate_development_profiles` — same flow
+  # with `type: "appstore"`.
+  desc "Force regenerate App Store provisioning profiles with updated capabilities"
+  lane :regenerate_appstore_profiles do
+    UI.important("⚠️  This will FORCE regenerate the App Store provisioning profile")
+    UI.important("    This completely recreates profiles to include any newly added capabilities")
+
+    setup_api_key
+
+    match(
+      type: "appstore",
+      force: true,  # Force regenerate even if profile exists
+      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+    )
+
+    UI.success("✅ App Store provisioning profiles regenerated!")
+  end
+
+  # Convenience wrapper: regenerate both development and appstore profiles in
+  # one go after a capability change.
+  desc "Force regenerate all provisioning profiles (development and appstore)"
+  lane :regenerate_all_profiles do
+    regenerate_development_profiles
+    regenerate_appstore_profiles
+    UI.success("✅ All provisioning profiles regenerated!")
+  end
+
+  # Convenience wrapper invoked by `make certs`: pulls both development and
+  # appstore certs/profiles in one go (the common case on a fresh machine).
+  desc "Sync all certificates (development and appstore)"
+  lane :sync_certificates do
+    sync_certificates_development
+    sync_certificates_appstore
+    UI.success("✅ All certificates synced!")
+  end
+
+  # `run_tests` (alias: `scan`) wraps `xcodebuild test` and produces parseable
+  # output (junit XML, HTML report) suitable for CI. Code coverage is exported
+  # alongside.
+  desc "Run all unit tests"
+  lane :test do
+    run_tests(
+      # Tests live in the Kit package, and the Tuist-generated workspace doesn't
+      # expose a package test scheme, so test the SwiftPM package directly via
+      # its auto-generated `-Package` scheme.
+      package_path: "Packages/{{TEMPLATE_PACKAGE_NAME}}",
+      scheme: "{{TEMPLATE_APP_NAME}}Kit-Package",
+      destination: ENV.fetch("TEST_DESTINATION"),
+      code_coverage: true,
+      # Required with package_path: scan can't locate the .xcresult in the
+      # package's derived data without an explicit result bundle. The output
+      # path must be absolute — xcodebuild runs from the package directory.
+      result_bundle: true,
+      output_directory: File.expand_path("test_output", __dir__),
+      output_types: "html,junit"
+    )
+
+    UI.success("✅ All tests passed!")
+    UI.message("Code coverage report generated in fastlane/test_output")
+  end
+
+  # Debug build — useful for sanity-checking that signing resolves end-to-end
+  # before TestFlight upload. Uses raw `xcodebuild` (rather than `build_app`)
+  # so we can copy the .app bundle out of DerivedData for local inspection.
+  desc "Build debug version"
+  lane :build do
+    app_name = ENV.fetch("APP_NAME")
+    clear_derived_data
+
+    xcodebuild(
+      workspace: "#{app_name}.xcworkspace",
+      scheme: app_name,
+      configuration: "Debug",
+      clean: true,
+      build: true,
+      destination: ENV.fetch("TEST_DESTINATION")
+    )
+
+    # Copy app to build directory
+    sh("mkdir -p ../build")
+    build_settings = sh(%(xcodebuild -workspace "#{app_name}.xcworkspace" -scheme "#{app_name}" -configuration "Debug" -showBuildSettings))
+    built_products_dir = build_settings[/BUILT_PRODUCTS_DIR = (.+)$/, 1]
+    full_product_name = build_settings[/FULL_PRODUCT_NAME = (.+)$/, 1]
+    if built_products_dir.nil? || full_product_name.nil?
+      UI.user_error!("Unable to determine build product path from xcodebuild settings")
+    end
+    app_path = File.join(built_products_dir, full_product_name)
+    sh(%(cp -R "#{app_path}" ../build/))
+
+    UI.success("✅ Debug build complete!")
+    UI.message("App built at: ./build/#{app_name}.app")
+  end
+
+  # Builds a Release configuration archive signed for App Store distribution.
+  # `build_app` (alias: `gym`) wraps `xcodebuild archive` + `xcodebuild
+  # -exportArchive` and produces a .ipa (iOS/tvOS/watchOS) or .pkg (macOS)
+  # ready for upload. We sync the App Store certs first so signing has the
+  # right identity available.
+  desc "Build release version for App Store"
+  lane :release_build do
+    app_name = ENV.fetch("APP_NAME")
+    setup_api_key
+
+    setup_ci if ENV['CI']
+
+    sync_certificates_appstore
+
+    # No clear_derived_data here: `build_app(clean: true)` already cleans the
+    # build products, and wiping DerivedData would only throw away the packages
+    # `tuist generate` just resolved. gym would then re-resolve through Xcode's
+    # libgit2 client, which ignores GIT_SSH_COMMAND — breaking private SSH
+    # package dependencies.
+    build_app(
+      scheme: app_name,
+      configuration: "Release",
+      clean: true,
+      # `export_method: "app-store"` produces an artifact signed for upload to
+      # App Store Connect. Other values: "ad-hoc", "enterprise", "development".
+      export_method: "app-store",
+      output_directory: "./build/release",
+      output_name: app_name,
+      # `FASTLANE_XCARGS` lets CI inject extra xcodebuild args (e.g. for
+      # version overrides) without editing the Fastfile.
+      xcargs: ENV["FASTLANE_XCARGS"]
+    )
+
+    UI.success("✅ Release build complete!")
+    UI.message("App ready for App Store submission at: ./build/release/#{app_name}.#{ENV.fetch('BUILD_ARTIFACT_EXT')}")
+  end
+
+  # Reads the highest build number ever uploaded to TestFlight for this app
+  # and sets the next build to that + 1. Reading from TestFlight (not from a
+  # local counter) avoids collisions when multiple developers or branches
+  # produce builds, and survives clean checkouts/CI machines.
+  desc "Set CURRENT_PROJECT_VERSION from latest TestFlight build + 1"
+  lane :sync_build_number do
+    # Without API credentials `latest_testflight_build_number` falls back to
+    # Apple ID auth, which prompts (or hangs) in CI — fail with a clear error.
+    unless ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"]
+      UI.user_error!("Missing App Store Connect API credentials! Set these environment variables:\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_KEY_ID\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_ISSUER_ID\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_KEY")
+    end
+    setup_api_key
+
+    testflight_build = latest_testflight_build_number(
+      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier),
+      initial_build_number: 1
+    )
+    new_build = testflight_build + 1
+
+    UI.message("Latest TestFlight build: #{testflight_build}")
+    UI.message("New build number: #{new_build}")
+
+    # update-version.sh preserves the BETA_BASE_BUILD line, so only the
+    # build number changes.
+    xcconfig = File.read("../Config/Version.xcconfig")
+    marketing_version = xcconfig.match(/MARKETING_VERSION = (.+)/)[1].strip
+    sh("cd .. && ./Scripts/update-version.sh #{marketing_version} #{new_build}")
+
+    UI.success("✅ Build number set to #{new_build}")
+  end
+
+  # Screenshot capture drives the app with a UI test target via `snapshot`
+  # (configured in fastlane/Snapfile). Add a UI test that calls `snapshot("01_Name")`
+  # at each screen and point Snapfile's `scheme` at it. `snapshot` supports
+  # iOS/iPadOS/tvOS/watchOS simulators only — capture macOS screenshots by hand.
+  desc "Capture App Store screenshots using snapshot (settings in fastlane/Snapfile)"
+  lane :capture_ios do
+    UI.user_error!("snapshot does not support macOS — capture screenshots manually") if ENV.fetch("PLATFORM") == "mac"
+
+    capture_ios_screenshots(
+      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier),
+      reinstall_app: true
+    )
+
+    UI.success("Screenshots captured in fastlane/screenshots/")
+  end
+
+  # frameit reads fastlane/screenshots/Framefile.json and renders marketing
+  # titles (from fastlane/screenshots/<locale>/title.strings) on a background
+  # image. The Framefile references the background and font *relative to
+  # itself*, so generate both at frame time instead of committing binaries:
+  #   • background.png — solid colour, kept one level ABOVE the screenshots dir
+  #     so frameit doesn't try to frame it (requires ImageMagick's `magick`).
+  #   • marketing-font.ttf — copied from the macOS system font. Not a PNG, so
+  #     frameit ignores it as a screenshot. Both are gitignored.
+  desc "Frame screenshots with device bezels and marketing text"
+  lane :capture_frame do
+    screenshots_dir = File.expand_path("screenshots", __dir__)
+    background = File.expand_path("background.png", __dir__)
+    sh("magick -size 1320x2868 canvas:'#{ENV.fetch('FRAME_BACKGROUND_COLOR', '#1A1A1A')}' '#{background}'")
+    FileUtils.cp("/System/Library/Fonts/SFNS.ttf", File.join(screenshots_dir, "marketing-font.ttf"))
+
+    frameit(path: screenshots_dir, silver: false)
+
+    UI.success("Framed screenshots saved alongside originals in fastlane/screenshots/")
+  end
+
+  desc "Capture all screenshots and frame them"
+  lane :capture_all do
+    capture_ios
+    capture_frame
+    UI.success("All screenshots captured and framed!")
+  end
+
+  # The end-to-end TestFlight pipeline: build → upload binary.
+  # Called from CI on the main branch (see .github/workflows/app.yml) after
+  # `sync_build_number` has bumped CURRENT_PROJECT_VERSION.
+  desc "Upload to TestFlight for beta testing"
+  lane :beta do
+    release_build
+
+    # Fail fast with a clear error if API credentials are missing — the
+    # upload would fail anyway, but with a less obvious message.
+    unless ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"]
+      UI.user_error!("Missing App Store Connect API credentials! Set these environment variables:\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_KEY_ID\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_ISSUER_ID\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_KEY")
+    end
+
+    setup_api_key
+
+    app_name = ENV.fetch("APP_NAME")
+    # "What to Test" notes are versioned alongside the code; update
+    # fastlane/changelog.txt before merging to main.
+    notes_path = File.join(__dir__, "changelog.txt")
+    UI.user_error!("Missing changelog.txt at #{notes_path}") unless File.exist?(notes_path)
+    changelog = File.read(notes_path).strip
+    testflight_opts = {
+      # Don't block waiting for Apple's processing — that can take 5-30
+      # minutes and isn't useful in CI.
+      skip_waiting_for_build_processing: true,
+      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier),
+      changelog: changelog,
+      beta_app_description: ENV.fetch("BETA_APP_DESCRIPTION") { app_name },
+      beta_app_feedback_email: ENV.fetch("BETA_FEEDBACK_EMAIL") { CredentialsManager::AppfileConfig.try_fetch_value(:apple_id) }
+    }
+    # `apple_id` here means the numeric App Store Connect app ID, not the
+    # Apple ID email. It's only known after the app has been registered.
+    app_store_app_id = ENV["APP_STORE_APP_ID"]
+    testflight_opts[:apple_id] = app_store_app_id if app_store_app_id && !app_store_app_id.empty?
+    upload_to_testflight(**testflight_opts)
+
+    # Metadata is deliberately NOT uploaded here: a locked or in-review App
+    # Store version would fail this lane after the binary is already up, and
+    # in CI that also skips the build-number commit. Run `upload_metadata`
+    # (or the app-store-metadata workflow) separately.
+
+    UI.success("✅ Build uploaded to TestFlight!")
+    UI.message("Beta testers will be notified once processing completes")
+  end
+
+  # End-to-end App Store release: test → build → upload binary + metadata +
+  # screenshots. Intentionally does *not* submit for review — submit manually
+  # in App Store Connect once you've sanity-checked the uploaded listing.
+  desc "Deploy to App Store"
+  lane :release do
+    UI.message("🚀 Preparing App Store release...")
+
+    test
+
+    release_build
+
+    setup_api_key
+
+    upload_to_app_store(
+      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier),
+      skip_screenshots: false,
+      overwrite_screenshots: true,
+      skip_metadata: false,
+      submit_for_review: false,
+      automatic_release: false,
+      # Set to true once the app has in-app purchases.
+      precheck_include_in_app_purchases: false,
+      app_rating_config_path: "./fastlane/metadata/rating_config.json"
+    )
+
+    UI.success("✅ App uploaded to App Store Connect!")
+    UI.message("Next steps:")
+    UI.message("1. Review metadata in App Store Connect")
+    UI.message("2. Submit for review manually in App Store Connect when ready")
+  end
+
+  # Pushes the contents of fastlane/metadata and fastlane/screenshots to App
+  # Store Connect without uploading a binary. Useful when you've edited copy
+  # or swapped screenshots and don't want to wait for a fresh build. Run from
+  # CI via the manually dispatched "App Store Metadata" workflow.
+  desc "Sync the App Store listing: metadata, screenshots, age rating, privacy details"
+  desc "Metadata only — the binary is uploaded separately by the `beta` lane."
+  lane :upload_metadata do
+    require "spaceship"
+
+    unless ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"]
+      UI.user_error!("Missing App Store Connect API credentials! Set these environment variables:\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_KEY_ID\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_ISSUER_ID\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_KEY")
+    end
+    # Also sets Spaceship::ConnectAPI.token, which authenticates the state check below.
+    setup_api_key
+    app_identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+
+    # App privacy is app-level rather than version-scoped, so it is never
+    # blocked by a version being locked for review. Run it first so it still
+    # lands even if the guards below bail out. Non-fatal on purpose: it needs
+    # an Apple ID session (see upload_privacy_details), and a session failure
+    # must not sink the rest of the listing sync, which uses the API key.
+    begin
+      upload_privacy_details
+    rescue StandardError => e
+      UI.important("⚠️  Skipped app privacy details: #{e.message}")
+      UI.important("    This action needs an Apple ID session (FASTLANE_SESSION), not the " \
+                   "App Store Connect API key. Update the privacy label manually if it changed.")
+    end
+
+    # App Store Connect only accepts listing edits while the version is in an
+    # editable state, and deliver does NOT guard this for us:
+    #   • IN_REVIEW           → deliver retries version_check_wait_retry_limit
+    #     times with exponential backoff (~25 minutes on the default of 7)
+    #     before failing.
+    #   • WAITING_FOR_REVIEW  → counted as editable, but Apple rejects
+    #     screenshot writes, so the upload dies partway through.
+    # Fail fast with the actual reason instead.
+    platform = asc_platform
+    app      = Spaceship::ConnectAPI::App.find(app_identifier)
+    UI.user_error!("App Store Connect app not found for #{app_identifier} — run `make setup` first") unless app
+    states   = Spaceship::ConnectAPI::AppStoreVersion::AppVersionState
+
+    in_review = app.get_in_review_app_store_version(platform: platform)
+    if in_review
+      UI.user_error!("Version #{in_review.version_string} is IN_REVIEW — App Store Connect " \
+                     "will not accept listing edits. Re-run once review completes.")
+    end
+
+    edit_version = app.get_edit_app_store_version(platform: platform)
+    if edit_version && edit_version.app_version_state == states::WAITING_FOR_REVIEW
+      UI.user_error!("Version #{edit_version.version_string} is WAITING_FOR_REVIEW — App Store " \
+                     "Connect rejects screenshot writes in this state. Re-run once review completes.")
+    end
+
+    # deliver normally reads the version from the binary, which this lane
+    # skips. Sync into whatever editable draft already exists rather than
+    # forcing MARKETING_VERSION onto it — deliver PATCHes versionString when the
+    # value differs, so a metadata sync would silently RENAME the App Store
+    # version. Fall back to MARKETING_VERSION only when a draft must be created.
+    xcconfig = File.read(File.expand_path("../Config/Version.xcconfig", __dir__))
+    marketing_version = xcconfig.match(/MARKETING_VERSION = (.+)/)[1].strip
+    target_version = edit_version&.version_string || marketing_version
+    if edit_version && edit_version.version_string != marketing_version
+      UI.important("⚠️  App Store Connect draft is #{edit_version.version_string} but " \
+                   "MARKETING_VERSION is #{marketing_version}. Syncing into " \
+                   "#{edit_version.version_string} without renaming it; they must match before submission.")
+    end
+    UI.message("Syncing App Store listing for #{target_version}...")
+
+    upload_to_app_store(
+      app_identifier: app_identifier,
+      app_version: target_version,
+      skip_binary_upload: true,       # the binary ships via the `beta` lane
+      skip_screenshots: false,
+      overwrite_screenshots: true,    # Replace existing screenshots wholesale
+      skip_metadata: false,
+      precheck_include_in_app_purchases: false,
+      # Without force, deliver renders an HTML preview and blocks on a y/n
+      # prompt — CI has no TTY.
+      force: true,
+      # Would pull a submission back OUT of review to make it editable. Pinned
+      # so no future edit can enable it by accident.
+      reject_if_possible: false,
+      run_precheck_before_submit: false,
+      # The guards above already proved the version resolves.
+      version_check_wait_retry_limit: 2,
+      submit_for_review: false,
+      automatic_release: false,
+      app_rating_config_path: "./fastlane/metadata/rating_config.json"
+    )
+
+    UI.success("✅ App Store listing synced (metadata, screenshots, age rating)")
+  end
+
+  # Uploads the App Privacy "nutrition label" answers from the JSON file.
+  # Apple requires this to be set before submitting for review. The bundled
+  # JSON declares "no data collected" — edit it if your app collects data.
+  #
+  # upload_app_privacy_details_to_app_store has NO api_key option: it logs in
+  # with an Apple ID session. Locally that comes from the cached session in
+  # ~/.fastlane/spaceship/; in CI set FASTLANE_SESSION (from
+  # `fastlane spaceauth -u <apple_id>`). The asc-session workflow checks weekly
+  # that the session is still valid.
+  desc "Upload App Privacy nutrition labels from fastlane/app_privacy_details.json"
+  lane :upload_privacy_details do
+    upload_app_privacy_details_to_app_store(
+      username: CredentialsManager::AppfileConfig.try_fetch_value(:apple_id),
+      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier),
+      json_path: "./fastlane/app_privacy_details.json"
+    )
+
+    UI.success("✅ App Privacy details uploaded!")
+  end
+
+  # Featuring Nominations ask Apple Editorial to consider the app for
+  # featuring. deliver doesn't manage them, so they are kept as YAML in
+  # fastlane/nominations/ and pushed through the ASC Nominations API.
+  desc "Create/update an App Store Featuring Nomination draft from fastlane/nominations/*.yml"
+  desc "Options: file:path, name:<file name>, dry_run:true, submit:true (human editorial submit)"
+  lane :sync_featuring_nomination do |options|
+    require "spaceship"
+
+    unless ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"]
+      UI.user_error!("Missing App Store Connect API credentials! Set these environment variables:\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_KEY_ID\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_ISSUER_ID\n" \
+                     "  - APP_STORE_CONNECT_API_KEY_KEY")
+    end
+    setup_api_key
+
+    client = Spaceship::ConnectAPI.client&.tunes_request_client
+    UI.user_error!("App Store Connect API client not available after setup_api_key") unless client
+
+    FeaturingNomination.sync!(
+      client: client,
+      app_identifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier),
+      path: FeaturingNomination.resolve_path(options[:file] || options[:name]),
+      dry_run: [true, "true", "1", 1].include?(options[:dry_run]),
+      submit: [true, "true", "1", 1].include?(options[:submit])
+    )
+  end
+
+  # Runs after any lane raises. Logs the lane name and exception message so
+  # CI output makes the failure obvious.
+  error do |lane, exception|
+    UI.error("❌ Lane '#{lane}' failed with exception:")
+    UI.error(exception.message)
+  end
+
+  # Authenticates against the App Store Connect API using a key generated in
+  # App Store Connect → Users and Access → Integrations. Avoids the
+  # interactive 2FA prompt that the Apple ID-based auth requires.
+  #
+  # Three env vars are needed (set as repo secrets in CI):
+  #   APP_STORE_CONNECT_API_KEY_KEY_ID    — short alphanumeric ID
+  #   APP_STORE_CONNECT_API_KEY_ISSUER_ID — UUID for the issuer
+  #   APP_STORE_CONNECT_API_KEY_KEY       — contents of the .p8 file (raw PEM
+  #                                         or base64-encoded; we detect which)
+  #
+  # Marked `private_lane` so it can't be invoked directly — only called from
+  # other lanes via `setup_api_key`. No-op when credentials are absent so
+  # local-only lanes (e.g. `build`) still work without API setup.
+  private_lane :setup_api_key do
+    if ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"]
+      unless ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"]
+        UI.user_error!("APP_STORE_CONNECT_API_KEY_ISSUER_ID is required when APP_STORE_CONNECT_API_KEY_KEY_ID is provided")
+      end
+
+      # Detect raw PEM vs base64. CI secrets are typically base64 to avoid
+      # newline-handling issues in env vars; locally the .p8 file contents
+      # are usually pasted in raw.
+      key_content = ENV["APP_STORE_CONNECT_API_KEY_KEY"]
+      if key_content && !(key_content.include?("BEGIN") && key_content.include?("PRIVATE KEY"))
+        require 'base64'
+        key_content = Base64.decode64(key_content)
+      end
+
+      app_store_connect_api_key(
+        key_id: ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"],
+        issuer_id: ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"],
+        key_content: key_content
+      )
+    end
+  end
+
+  # Maps the fastlane PLATFORM to App Store Connect's platform. watchOS apps
+  # are listed under iOS in App Store Connect.
+  private_lane :asc_platform do
+    platforms = Spaceship::ConnectAPI::Platform
+    { "mac" => platforms::MAC_OS, "tvos" => platforms::TV_OS }.fetch(ENV.fetch("PLATFORM"), platforms::IOS)
+  end
+end

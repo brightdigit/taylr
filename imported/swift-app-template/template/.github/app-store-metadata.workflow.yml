@@ -1,0 +1,79 @@
+# ─── App Store Metadata Workflow ──────────────────────────────────────
+# Activate: mv .github/app-store-metadata.workflow.yml .github/workflows/app-store-metadata.yml
+# (done automatically by Scripts/setup.sh)
+name: App Store Metadata
+#
+# Manually-dispatched sync of the App Store Connect listing — metadata,
+# screenshots, age rating, and the App Privacy nutrition label.
+#
+# Deliberately separate from the main app workflow: its `fastlane` job needs
+# [build-macos, lint], so reusing it would mean sitting through the full build
+# matrix just to push a description tweak. deliver never reads the Xcode
+# project (it only inspects a binary, which this lane skips), so no `tuist
+# generate` and no Xcode are needed here.
+#
+# Required GitHub Secrets:
+#   - APP_STORE_CONNECT_API_KEY_ISSUER_ID
+#   - APP_STORE_CONNECT_API_KEY_KEY      (base64-encoded key content)
+#   - APP_STORE_CONNECT_API_KEY_KEY_ID
+#   - FASTLANE_SESSION  (Apple ID session; ONLY for the App Privacy label step)
+#
+# FASTLANE_SESSION is not interchangeable with the API key. The privacy label
+# step (upload_app_privacy_details_to_app_store) has no `api_key` option at all —
+# it uses Apple ID session auth. Without it that step is skipped with a warning
+# and everything else still succeeds, so the listing syncs while the privacy
+# label quietly does not. Sessions last ~a month; ASC Session Check
+# (.github/workflows/asc-session.yml) fails weekly once this goes stale.
+#
+# No signing secrets — this lane uploads no binary.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: app-store-metadata
+  cancel-in-progress: false # never interrupt an in-flight upload
+
+jobs:
+  sync:
+    name: Sync App Store Listing
+    runs-on: [self-hosted, macOS]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+          cache_save: false # tools persist on self-hosted runner; 2.7 GB upload stalls at 0 MB/s every run
+
+      # Screenshots are Git LFS pointers in the repo; deliver needs the real PNGs.
+      - name: Setup and Pull Git LFS
+        run: |
+          mise exec ubi:git-lfs/git-lfs -- git lfs version
+          mise exec ubi:git-lfs/git-lfs -- git lfs install --local
+          mise exec ubi:git-lfs/git-lfs -- git lfs pull --include="*"
+          mise exec ubi:git-lfs/git-lfs -- git lfs checkout
+
+      - name: Cache RubyGems
+        uses: actions/cache@v5
+        with:
+          path: vendor/ruby
+          key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-gems-
+
+      - name: Setup Ruby
+        run: |
+          ruby --version
+          gem install bundler
+          bundle install
+
+      - name: Sync App Store Listing
+        run: bundle exec fastlane upload_metadata
+        env:
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+          # Only the privacy label step reads this; see the header note.
+          FASTLANE_SESSION: ${{ secrets.FASTLANE_SESSION }}

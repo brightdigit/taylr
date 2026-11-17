@@ -1,0 +1,148 @@
+opt_in_rules:
+  - array_init
+  #- closure_body_length
+  - closure_end_indentation
+  - closure_spacing
+  - collection_alignment
+  - conditional_returns_on_newline
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - contains_over_first_not_nil
+  - contains_over_range_nil_comparison
+  - convenience_type
+  - discouraged_object_literal
+  # - discouraged_optional_boolean
+  - empty_collection_literal
+  - empty_count
+  - empty_string
+  - empty_xctest_method
+  - enum_case_associated_values_count
+  - expiring_todo
+  - explicit_acl
+  - explicit_init
+  - explicit_top_level_acl
+  # - fallthrough
+  - fatal_error_message
+  - file_name
+  - file_name_no_space
+  - file_types_order
+  - flatmap_over_map_reduce
+  - force_unwrapping
+#  - function_default_parameter_at_end
+  - ibinspectable_in_extension
+  - identical_operands
+  - implicit_return
+  - implicitly_unwrapped_optional
+  - indentation_width
+  - joined_default_parameter
+  - last_where
+  - legacy_multiple
+  - legacy_random
+  - literal_expression_end_indentation
+  - lower_acl_than_parent
+  # - missing_docs  # Disabled during early implementation
+  - modifier_order
+  - multiline_arguments_brackets
+  - multiline_function_chains
+  - multiline_literal_brackets
+  - multiline_parameters
+  - nimble_operator
+  - nslocalizedstring_key
+  - nslocalizedstring_require_bundle
+  - number_separator
+  - object_literal
+  - one_declaration_per_file
+  - operator_usage_whitespace
+  - optional_enum_case_matching
+  - overridden_super_call
+  - override_in_extension
+  - pattern_matching_keywords
+  - prefer_self_type_over_type_of_self
+  - prefer_zero_over_explicit_init
+  - private_action
+  - private_outlet
+  - prohibited_interface_builder
+  - prohibited_super_call
+  - quick_discouraged_call
+  - quick_discouraged_focused_test
+  - quick_discouraged_pending_test
+  - reduce_into
+  - redundant_nil_coalescing
+  - redundant_type_annotation
+  - required_enum_case
+  - single_test_class
+  - sorted_first_last
+  - sorted_imports
+  - static_operator
+  - strong_iboutlet
+  - toggle_bool
+  - type_contents_order
+  - unavailable_function
+  - unneeded_parentheses_in_closure_argument
+  - unowned_variable_capture
+  - untyped_error_in_catch
+  - vertical_parameter_alignment_on_call
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
+  - xct_specific_matcher
+  - yoda_condition
+custom_rules:
+  no_global_declarations:
+    name: "No Global Declarations"
+    message: "Declare this inside a type (enum/struct namespace or extension) — globals \
+      bypass access-control scoping and can't be discovered from the type they relate to."
+    regex: '^(public |package |internal |private |fileprivate )?(func|let|var)\s+[a-zA-Z_]'
+    # NOTE: deliberately no `match_kinds:` — on SwiftLint 0.63.2 it silently suppresses
+    # every match here (verified against all of [keyword], [identifier], and both),
+    # because the matched range spans several syntax kinds and the filter requires all
+    # of them to be listed. The `^`-anchored regex is precise enough without it: type
+    # members are always indented under `indentation_width: 2`.
+    #
+    # SwiftPM/Tuist manifests require a top-level `let package`/`let project` and carry
+    # an inline `swiftlint:disable:next no_global_declarations`.
+    severity: error
+cyclomatic_complexity:
+  - 6
+  - 8
+type_body_length:
+  - 125
+  - 200
+file_length:
+  - 275
+  - 300
+function_body_length:
+  - 35
+  - 50
+function_parameter_count: 8
+line_length:
+  - 90
+  - 90
+identifier_name:
+  excluded:
+    - id
+    - db
+excluded:
+  - DerivedData
+  - .build
+  - .swiftpm
+  - "*/.swiftpm"
+  # Vendored fastlane snapshot helper — kept verbatim, exempt from lint.
+  - "UITests/SnapshotHelper.swift"
+  - "*/.build"
+indentation_width:
+  indentation_width: 2
+file_name:
+    severity: error
+fatal_error_message:
+    severity: error
+disabled_rules:
+  - trailing_comma
+  - strict_fileprivate
+  - nesting
+  - implicit_getter
+  - switch_case_alignment
+  - closure_parameter_position
+  - opening_brace
+  - optional_data_string_conversion
+  - todo
+  - missing_docs  # Re-enable when API stabilizes

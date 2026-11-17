@@ -1,0 +1,84 @@
+name: Private SPM dependency access
+description: >-
+  Authenticate to a private Swift Package Manager dependency over SSH and, on
+  macOS, leave it resolvable by xcodebuild.
+
+inputs:
+  deploy-key:
+    description: >-
+      Read-only SSH private key with access to the private dependency. A GitHub
+      deploy key is scoped to ONE repository: if the job also clones another
+      private repo over SSH, that clone will authenticate as this key and fail
+      with "Repository not found" — give the other consumer its own key rather
+      than adding a second key here.
+    required: true
+  resolve-for-xcode:
+    description: >-
+      Pre-resolve the package graph with system git so xcodebuild finds it
+      cached. Only for macOS jobs that run xcodebuild WITHOUT being able to pass
+      `-scmProvider system` (fastlane, which also detaches ssh-agent before it
+      builds). Pointless on jobs that build with SwiftPM directly or through
+      swift-build with `xcargs: -scmProvider system`, which use system git.
+    default: "false"
+  package-path:
+    description: Package to pre-resolve, when resolve-for-xcode is enabled.
+    default: "."
+  developer-dir:
+    description: Xcode to resolve with, so the cache it writes is the one read back.
+    default: /Applications/Xcode.app/Contents/Developer
+
+runs:
+  using: composite
+  steps:
+    # ssh-agent holds the key in memory and never writes it to disk, so it cannot
+    # collide with (or delete) a key a self-hosted runner keeps in ~/.ssh. Its post
+    # step kills the agent and removes nothing else.
+    - uses: webfactory/ssh-agent@v0.9.1
+      with:
+        ssh-private-key: ${{ inputs.deploy-key }}
+
+    # A runner cannot be assumed to know github.com's host key: container images
+    # commonly ship no known_hosts at all, and webfactory/ssh-agent seeds none, so
+    # the clone dies with "Host key verification failed" before the key is offered.
+    # This known_hosts goes under RUNNER_TEMP rather than ~/.ssh, which on a
+    # self-hosted runner belongs to the runner user and must not be written by CI.
+    - name: Trust github.com's SSH host key
+      shell: bash
+      run: |
+        set -eu
+        temp="$RUNNER_TEMP"
+        # Git's ssh on Windows wants a POSIX path; RUNNER_TEMP is D:\a\_temp there.
+        if command -v cygpath >/dev/null 2>&1; then
+          temp="$(cygpath -u "$RUNNER_TEMP")"
+        fi
+        known_hosts="$temp/known_hosts.github"
+        ssh-keyscan -t rsa,ecdsa,ed25519 github.com > "$known_hosts"
+        grep -q "^github.com " "$known_hosts"
+        echo "GIT_SSH_COMMAND=ssh -o UserKnownHostsFile=$known_hosts" >> "$GITHUB_ENV"
+
+    # xcodebuild resolves packages with Xcode's built-in (libgit2) SCM provider,
+    # which ignores ssh-agent, GIT_SSH_COMMAND and the system SSH config, and dies
+    # on the private clone with "Server SSH Fingerprint Failed to Verify". The real
+    # fix is `xcodebuild -scmProvider system`; the swift-build jobs pass that via
+    # `xcargs` and do not use this step.
+    #
+    # The fastlane job cannot: it detaches ssh-agent before `gym` so `match` can use
+    # its own deploy key, so its xcodebuild must find the private dependency already
+    # complete in the shared SwiftPM cache. SwiftPM's CLI resolves through system git
+    # — which does use ssh-agent and the known_hosts above — and writes that same
+    # cache, so once this has run xcodebuild reports the package "(cached)" and opens
+    # no SSH connection of its own.
+    #
+    # Anything downstream that wipes DerivedData between this step and the build
+    # forces xcodebuild to resolve again, which puts libgit2 back in the path.
+    #
+    # (`defaults write com.apple.dt.Xcode IDEPackageSupportUseBuiltinSCM -bool NO`
+    # was tried here and measured NOT to switch Xcode 27 off the built-in client.)
+    - name: Pre-resolve the private dependency with system git
+      if: inputs.resolve-for-xcode == 'true'
+      shell: bash
+      env:
+        # Resolve with the same Xcode the build will use, so the cache it writes is
+        # the one that toolchain reads back.
+        DEVELOPER_DIR: ${{ inputs.developer-dir }}
+      run: swift package resolve --package-path ${{ inputs.package-path }}

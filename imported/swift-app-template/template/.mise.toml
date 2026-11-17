@@ -1,0 +1,21 @@
+# mise configuration for {{TEMPLATE_APP_NAME}} production infrastructure
+# Documentation: https://mise.jdx.dev/configuration.html
+
+[settings]
+# Enable experimental features (required for spm backend)
+experimental = true
+
+[tools]
+# Swift tools via SPM
+"spm:swiftlang/swift-format" = "602.0.0"  # Apple's Swift code formatting
+"spm:peripheryapp/periphery" = "3.1.0"
+"spm:apple/swift-openapi-generator" = "1.7.0"
+
+# Linting (via core or aqua)
+swiftlint = "0.63.2"          # Swift style and conventions checking
+tuist = "4.198.3"             # Xcode project generator
+
+ruby = "3.3.7"                # Ruby runtime for fastlane (keep asc-session workflow in sync)
+uv = "0.11.1"                 # Python runner for Scripts/generate-icons.sh
+# Optional: Uncomment to set defaults
+# DEVELOPER_DIR = "/Applications/Xcode.app"

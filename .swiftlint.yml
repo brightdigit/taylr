@@ -120,6 +120,8 @@ excluded:
   - Package.swift
   # Each package under Packages/ lints itself with its own copy of this file.
   - Packages
+  # Swift-App-Template reference copy; integrate or delete before merging to main.
+  - imported
 indentation_width:
   indentation_width: 2
 file_name:
